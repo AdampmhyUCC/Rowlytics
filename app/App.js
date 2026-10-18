@@ -1,20 +1,22 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { SafeAreaView, Text } from 'react-native';
+import { supabase } from './supabase';
 
 export default function App() {
+  const [message, setMessage] = useState('Loading...');
+
+  useEffect(() => {
+    async function load() {
+      const { data, error } = await supabase.from('athletes').select('*');
+      if (error) setMessage(`Error: ${error.message}`);
+      else setMessage(`Found ${data.length} athlete(s): ${data.map((a) => a.name).join(', ')}`);
+    }
+    load();
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaView style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
+      <Text style={{ fontSize: 18 }}>{message}</Text>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
