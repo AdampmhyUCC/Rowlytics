@@ -37,6 +37,10 @@ GRANT UPDATE (name, dob) ON public.profiles TO authenticated;
 ALTER TABLE public.athletes
   ADD COLUMN IF NOT EXISTS profile_id UUID UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE;
 
+-- Remove the old open dev access: signed-out users can't touch athlete data.
+DROP POLICY IF EXISTS "temp_dev_access" ON public.athletes;
+DROP POLICY IF EXISTS "temp_dev_access" ON public.completed_training;
+
 -- A signed-in athlete can only see their own athlete record.
 DROP POLICY IF EXISTS "athletes_select_own" ON public.athletes;
 CREATE POLICY "athletes_select_own" ON public.athletes
