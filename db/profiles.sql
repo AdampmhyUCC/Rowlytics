@@ -49,6 +49,7 @@ CREATE POLICY "athletes_select_own" ON public.athletes
 
 -- Create the profile and athlete record when someone signs up, using the name
 -- and dob the app sends as sign-up metadata. Role is never taken from the client.
+-- Needs the parental_consents table from consent.sql.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -56,6 +57,18 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
+  -- A parent opening a consent link signs in for the first time with only an
+  -- email. They become a parent only if an athlete has an open request for it.
+  IF NOT coalesce(NEW.raw_user_meta_data ? 'dob', false) AND EXISTS (
+    SELECT 1 FROM public.parental_consents c
+    WHERE c.parent_email = lower(NEW.email) AND c.approved_at IS NULL
+  ) THEN
+    -- Placeholder name until they enter theirs on the consent page
+    INSERT INTO public.profiles (id, role, name)
+    VALUES (NEW.id, 'parent', left(split_part(NEW.email, '@', 1), 100));
+    RETURN NEW;
+  END IF;
+
   INSERT INTO public.profiles (id, name, dob)
   VALUES (
     NEW.id,
