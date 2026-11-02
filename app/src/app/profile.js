@@ -6,7 +6,7 @@ import { validateDob, validateName } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 
 export default function Profile() {
-  const { session } = useAuth();
+  const { session, refreshConsent } = useAuth();
   // session briefly becomes null on log out, before this screen unmounts
   const userId = session?.user.id;
   const [profile, setProfile] = useState(null);
@@ -25,7 +25,8 @@ export default function Profile() {
       .single();
     if (error) return setMessage({ text: `Could not load profile: ${error.message}`, kind: 'error' });
     setProfile(data);
-    setForm({ name: data.name, dob: data.dob });
+    // Parents have no date of birth
+    setForm({ name: data.name, dob: data.dob ?? '' });
   }
 
   useEffect(() => { if (userId) loadProfile(); }, [userId]);
@@ -48,10 +49,12 @@ export default function Profile() {
     setProfile(data);
     setEditing(false);
     setMessage({ text: 'Profile saved', kind: 'success' });
+    // A new date of birth under 16 means parental consent is needed
+    refreshConsent();
   }
 
   function cancel() {
-    setForm({ name: profile.name, dob: profile.dob });
+    setForm({ name: profile.name, dob: profile.dob ?? '' });
     setErrors({});
     setEditing(false);
   }

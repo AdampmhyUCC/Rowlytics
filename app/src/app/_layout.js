@@ -13,10 +13,11 @@ export default function RootLayout() {
 }
 
 function RootStack() {
-  const { session, loading } = useAuth();
+  const { session, loading, consentPending } = useAuth();
 
-  // Wait for the stored session so logged-in users don't flash the login screen
-  if (loading) {
+  // Wait for the stored session so logged-in users don't flash the login screen,
+  // and for the consent check so pending athletes don't flash the app
+  if (loading || (session && consentPending === null)) {
     return (
       <View style={{ flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator size="large" />
@@ -36,12 +37,19 @@ function RootStack() {
         <Stack.Screen name="forgot-password" options={{ title: 'Forgot password' }} />
       </Stack.Protected>
 
-      <Stack.Protected guard={!!session}>
+      <Stack.Protected guard={!!session && !consentPending}>
         <Stack.Screen name="profile" options={{ title: 'My profile' }} />
+      </Stack.Protected>
+
+      {/* Under-16 athletes see only this screen until a parent approves */}
+      <Stack.Protected guard={!!session && consentPending === true}>
+        <Stack.Screen name="waiting-for-consent" options={{ title: 'Parental consent' }} />
       </Stack.Protected>
 
       {/* Opened from the reset email, before and after the link signs the user in */}
       <Stack.Screen name="reset-password" options={{ title: 'Set new password' }} />
+      {/* Web page opened from the parent's consent email; the link signs the parent in */}
+      <Stack.Screen name="parent-consent" options={{ title: 'Parental consent' }} />
     </Stack>
   );
 }
