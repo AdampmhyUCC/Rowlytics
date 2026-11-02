@@ -1,6 +1,7 @@
 -- Rowlytics database schema (development)
 -- WARNING: the DROP lines delete all data. Never run on the pilot database.
 -- Run in the Supabase SQL Editor to rebuild the tables.
+-- User accounts and roles live in profiles.sql (not dropped by this file).
 
 DROP TABLE IF EXISTS completed_training;
 DROP TABLE IF EXISTS athletes;
@@ -35,5 +36,4 @@ CREATE TABLE completed_training (
 ALTER TABLE athletes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE completed_training ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "temp_dev_access" ON athletes FOR ALL TO anon USING (true) WITH CHECK (true);
-CREATE POLICY "temp_dev_access" ON completed_training FOR ALL TO anon USING (true) WITH CHECK (true);
+-- No anon access. Signed-in access policies are in profiles.sql.
