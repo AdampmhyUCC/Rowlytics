@@ -6,7 +6,7 @@ import { validateDob, validateName } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 
 export default function Profile() {
-  const { session } = useAuth();
+  const { session, refreshConsent } = useAuth();
   // session briefly becomes null on log out, before this screen unmounts
   const userId = session?.user.id;
   const [profile, setProfile] = useState(null);
@@ -48,6 +48,8 @@ export default function Profile() {
     setProfile(data);
     setEditing(false);
     setMessage({ text: 'Profile saved', kind: 'success' });
+    // A new date of birth under 16 means parental consent is needed
+    refreshConsent();
   }
 
   function cancel() {
