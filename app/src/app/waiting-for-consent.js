@@ -36,17 +36,33 @@ export default function WaitingForConsent() {
     setEmailError(error);
     if (error) return;
 
+    const parentEmail = email.trim().toLowerCase();
     setBusy('send');
     setMessage({ text: '' });
     // Replaces any earlier request, so a mistyped email can be corrected
     const { error: rpcError } = await supabase.rpc('request_parental_consent', {
-      p_parent_email: email.trim(),
+      p_parent_email: parentEmail,
+    });
+    if (rpcError) {
+      setBusy(null);
+      return setMessage({ text: rpcError.message, kind: 'error' });
+    }
+    setSentTo(parentEmail);
+
+    // Email the parent a sign-in link to the consent page. This must come after
+    // the request is saved: the open request is what makes the email a parent account.
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: parentEmail,
+      options: {
+        emailRedirectTo: `${process.env.EXPO_PUBLIC_WEB_URL}/parent-consent`,
+        // Only picks the consent wording in the email template; the role comes from the request
+        data: { parental_consent: true },
+      },
     });
     setBusy(null);
 
-    if (rpcError) return setMessage({ text: rpcError.message, kind: 'error' });
-    setSentTo(email.trim().toLowerCase());
-    setMessage({ text: 'Request sent', kind: 'success' });
+    if (otpError) return setMessage({ text: `Could not send the email: ${otpError.message}`, kind: 'error' });
+    setMessage({ text: `We've emailed ${parentEmail} a link to approve your account.`, kind: 'success' });
   }
 
   async function checkAgain() {

@@ -1,0 +1,19 @@
+<!--
+  Supabase: Authentication > Emails > Templates > Confirm signup
+  Suggested subject: Confirm your Rowlytics account
+
+  Sent to athletes signing up, and to a parent the first time an athlete asks
+  for their consent (the app marks those with parental_consent in user metadata).
+-->
+{{ if .Data.parental_consent }}
+<h2>An athlete has asked for your consent</h2>
+<p>Someone has signed up to Rowlytics, a training log for rowers, and given your
+email as their parent or guardian. Athletes under 16 need a parent's consent
+before they can use the app.</p>
+<p><a href="{{ .ConfirmationURL }}">Review and approve</a></p>
+<p>If you weren't expecting this, you can ignore this email and nothing will happen.</p>
+{{ else }}
+<h2>Confirm your signup</h2>
+<p>Follow this link to confirm your Rowlytics account:</p>
+<p><a href="{{ .ConfirmationURL }}">Confirm your email</a></p>
+{{ end }}
