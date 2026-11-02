@@ -25,7 +25,8 @@ export default function Profile() {
       .single();
     if (error) return setMessage({ text: `Could not load profile: ${error.message}`, kind: 'error' });
     setProfile(data);
-    setForm({ name: data.name, dob: data.dob });
+    // Parents have no date of birth
+    setForm({ name: data.name, dob: data.dob ?? '' });
   }
 
   useEffect(() => { if (userId) loadProfile(); }, [userId]);
@@ -53,7 +54,7 @@ export default function Profile() {
   }
 
   function cancel() {
-    setForm({ name: profile.name, dob: profile.dob });
+    setForm({ name: profile.name, dob: profile.dob ?? '' });
     setErrors({});
     setEditing(false);
   }

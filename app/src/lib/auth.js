@@ -13,6 +13,7 @@ const AuthContext = createContext({
   session: null,
   loading: true,
   linkError: null,
+  role: null,
   consentPending: null,
   refreshConsent: async () => null,
 });
@@ -48,19 +49,20 @@ async function createSessionFromUrl(url) {
   }
 }
 
-// Athletes under 16 are pending until a parent approves. The database decides,
-// and also blocks pending athletes itself; this only picks which screens to show.
-async function fetchConsentPending(userId) {
+// The user's role, and whether they're an athlete under 16 still waiting for a
+// parent. The database decides, and also blocks pending athletes itself; this
+// only picks which screens to show.
+async function fetchAccount(userId) {
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', userId)
     .single();
   if (error) throw error;
-  if (profile.role !== 'athlete') return false;
+  if (profile.role !== 'athlete') return { role: profile.role, consentPending: false };
   const { data: active, error: rpcError } = await supabase.rpc('is_active_athlete');
   if (rpcError) throw rpcError;
-  return !active;
+  return { role: profile.role, consentPending: !active };
 }
 
 export function AuthProvider({ children }) {
@@ -68,7 +70,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [linkError, setLinkError] = useState(null);
   // null until checked for the signed-in user
-  const [consentPending, setConsentPending] = useState(null);
+  const [account, setAccount] = useState(null);
   const url = Linking.useURL();
   const userId = session?.user.id;
 
@@ -76,13 +78,13 @@ export function AuthProvider({ children }) {
   const refreshConsent = useCallback(async () => {
     if (!userId) return null;
     try {
-      const pending = await fetchConsentPending(userId);
-      setConsentPending(pending);
-      return pending;
+      const newAccount = await fetchAccount(userId);
+      setAccount(newAccount);
+      return newAccount.consentPending;
     } catch (error) {
       // Don't lock the user out over a network error; the database still enforces consent
       console.warn('Could not check parental consent:', error.message);
-      setConsentPending((current) => current ?? false);
+      setAccount((current) => current ?? { role: null, consentPending: false });
       return null;
     }
   }, [userId]);
@@ -90,7 +92,7 @@ export function AuthProvider({ children }) {
   // Check again for each new user, and whenever the app comes back to the
   // foreground (e.g. after the parent approves)
   useEffect(() => {
-    setConsentPending(null);
+    setAccount(null);
     refreshConsent();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') refreshConsent();
@@ -117,7 +119,14 @@ export function AuthProvider({ children }) {
   }, [url]);
 
   return (
-    <AuthContext.Provider value={{ session, loading, linkError, consentPending, refreshConsent }}>
+    <AuthContext.Provider value={{
+      session,
+      loading,
+      linkError,
+      role: account?.role ?? null,
+      consentPending: account?.consentPending ?? null,
+      refreshConsent,
+    }}>
       {children}
     </AuthContext.Provider>
   );

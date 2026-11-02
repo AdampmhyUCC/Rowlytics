@@ -188,10 +188,32 @@ BEGIN
 END;
 $$;
 
+-- For the parent confirmation page: the athletes waiting for the signed-in
+-- parent's consent. Parents can't read athletes directly, so this returns
+-- only what the page shows.
+CREATE OR REPLACE FUNCTION public.get_my_consent_requests()
+RETURNS TABLE (consent_id UUID, athlete_name VARCHAR, athlete_age INT, requested_at TIMESTAMPTZ)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT c.consent_id, a.name, date_part('year', age(a.dob))::INT, c.requested_at
+  FROM public.parental_consents c
+  JOIN public.athletes a ON a.athlete_id = c.athlete_id
+  JOIN auth.users u ON u.id = (SELECT auth.uid())
+  WHERE c.approved_at IS NULL
+    AND u.email_confirmed_at IS NOT NULL
+    AND c.parent_email = lower(u.email)
+  ORDER BY c.requested_at;
+$$;
+
 -- Only signed-in users can call the consent functions
 REVOKE EXECUTE ON FUNCTION public.is_active_athlete() FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.request_parental_consent(TEXT) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.approve_parental_consent(UUID, TEXT) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.get_my_consent_requests() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_active_athlete() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.request_parental_consent(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.approve_parental_consent(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_consent_requests() TO authenticated;

@@ -48,6 +48,8 @@ function RootStack() {
 
       {/* Opened from the reset email, before and after the link signs the user in */}
       <Stack.Screen name="reset-password" options={{ title: 'Set new password' }} />
+      {/* Web page opened from the parent's consent email; the link signs the parent in */}
+      <Stack.Screen name="parent-consent" options={{ title: 'Parental consent' }} />
     </Stack>
   );
 }
