@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
 import { validateDob, validateName } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
@@ -23,6 +24,7 @@ export default function Profile() {
       .select('id, name, dob, role')
       .eq('id', userId)
       .single();
+    logError('profile.load', error);
     if (error) return setMessage({ text: `Could not load profile: ${error.message}`, kind: 'error' });
     setProfile(data);
     // Parents have no date of birth
@@ -45,6 +47,7 @@ export default function Profile() {
       .single();
     setBusy(false);
 
+    logError('profile.save', error);
     if (error) return setMessage({ text: `Save failed: ${error.message}`, kind: 'error' });
     setProfile(data);
     setEditing(false);
@@ -62,6 +65,7 @@ export default function Profile() {
   async function logOut() {
     const { error } = await supabase.auth.signOut();
     // On success the root layout sees the session end and returns to login
+    logError('profile.logOut', error);
     if (error) setMessage({ text: `Log out failed: ${error.message}`, kind: 'error' });
   }
 

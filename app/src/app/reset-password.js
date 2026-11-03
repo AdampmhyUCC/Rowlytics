@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
 import { validatePassword } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
@@ -31,6 +32,7 @@ export default function ResetPassword() {
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
+    logError('resetPassword', error);
     if (error) return setError(error.message);
     router.replace('/profile');
   }

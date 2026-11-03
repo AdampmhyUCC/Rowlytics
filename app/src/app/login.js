@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 
 export default function Login() {
@@ -17,6 +18,7 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     // On success the root layout sees the new session and moves to the profile screen
+    logError('login', error);
     if (error) setError(error.message);
   }
 

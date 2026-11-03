@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { Link } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { validateDob, validateEmail, validateName, validatePassword } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 
@@ -37,6 +38,7 @@ export default function SignUp() {
     });
     setBusy(false);
 
+    logError('signUp', error);
     if (error) return setMessage({ text: error.message, kind: 'error' });
     // With email confirmation on, Supabase returns no session until the link is tapped
     if (!data.session) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
 import { validateName } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
@@ -20,6 +21,7 @@ export default function ParentConsent() {
   // Only returns requests sent to the signed-in parent's email
   async function loadRequests() {
     const { data, error } = await supabase.rpc('get_my_consent_requests');
+    logError('parentConsent.load', error);
     if (error) return setMessage({ text: `Could not load requests: ${error.message}`, kind: 'error' });
     setRequests(data);
   }
@@ -39,6 +41,7 @@ export default function ParentConsent() {
     });
     setBusy(null);
 
+    logError('parentConsent.approve', rpcError);
     if (rpcError) return setMessage({ text: rpcError.message, kind: 'error' });
     setMessage({ text: `Thank you. ${request.athlete_name} can now use Rowlytics.`, kind: 'success' });
     loadRequests();
@@ -46,6 +49,7 @@ export default function ParentConsent() {
 
   async function logOut() {
     const { error } = await supabase.auth.signOut();
+    logError('parentConsent.logOut', error);
     if (error) setMessage({ text: `Log out failed: ${error.message}`, kind: 'error' });
   }
 

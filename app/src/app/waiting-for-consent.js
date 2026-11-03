@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
 import { validateEmail } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
@@ -22,6 +23,7 @@ export default function WaitingForConsent() {
       .select('parent_email')
       .is('approved_at', null)
       .maybeSingle();
+    logError('waitingForConsent.load', error);
     if (error) return setMessage({ text: `Could not load your request: ${error.message}`, kind: 'error' });
     if (data) {
       setSentTo(data.parent_email);
@@ -43,6 +45,7 @@ export default function WaitingForConsent() {
     const { error: rpcError } = await supabase.rpc('request_parental_consent', {
       p_parent_email: parentEmail,
     });
+    logError('waitingForConsent.request', rpcError);
     if (rpcError) {
       setBusy(null);
       return setMessage({ text: rpcError.message, kind: 'error' });
@@ -76,6 +79,7 @@ export default function WaitingForConsent() {
 
   async function logOut() {
     const { error } = await supabase.auth.signOut();
+    logError('waitingForConsent.logOut', error);
     if (error) setMessage({ text: `Log out failed: ${error.message}`, kind: 'error' });
   }
 
