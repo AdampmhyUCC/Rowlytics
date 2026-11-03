@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { validateEmail } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 
@@ -21,12 +22,16 @@ export default function ForgotPassword() {
     });
     setBusy(false);
 
+    logError('forgotPassword', error);
     if (error) return setMessage({ text: error.message, kind: 'error' });
     setMessage({ text: 'If an account exists for that email, a reset link is on its way.', kind: 'success' });
   }
 
   return (
-    <Screen>
+    <Screen footer={<>
+      <Message text={message.text} kind={message.kind} />
+      <Button title="Send reset link" onPress={sendReset} busy={busy} />
+    </>}>
       <Text style={styles.subtle}>Enter your email and we'll send you a link to set a new password.</Text>
       <Field
         label="Email"
@@ -38,8 +43,6 @@ export default function ForgotPassword() {
         keyboardType="email-address"
         textContentType="emailAddress"
       />
-      <Message text={message.text} kind={message.kind} />
-      <Button title="Send reset link" onPress={sendReset} busy={busy} />
     </Screen>
   );
 }

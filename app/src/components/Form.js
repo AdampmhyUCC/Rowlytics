@@ -1,20 +1,64 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Shared building blocks for the auth and profile screens
 
 // contentInsetAdjustmentBehavior keeps content below the see-through iOS header;
-// automaticallyAdjustKeyboardInsets scrolls fields above the keyboard
-export function Screen({ children }) {
+// automaticallyAdjustKeyboardInsets scrolls fields above the keyboard.
+// footer holds the screen's buttons (and the message above them). It stays
+// pinned to the bottom, above the home indicator, instead of scrolling away.
+export function Screen({ children, footer }) {
+  const keyboardHeight = useKeyboardHeight();
   return (
-    <ScrollView
-      contentContainerStyle={styles.screen}
-      contentInsetAdjustmentBehavior="automatic"
-      automaticallyAdjustKeyboardInsets
-      keyboardShouldPersistTaps="handled"
-    >
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.screen}
+        contentInsetAdjustmentBehavior="automatic"
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+      >
+        {children}
+      </ScrollView>
+      {footer ? <Footer keyboardHeight={keyboardHeight}>{footer}</Footer> : null}
+    </View>
   );
+}
+
+// The pinned button area. Also used on its own by list screens, which can't
+// sit inside Screen's ScrollView. inTabs: the tab bar below already keeps
+// clear of the home indicator, so no extra space is needed.
+export function Footer({ children, keyboardHeight = 0, inTabs = false }) {
+  const insets = useSafeAreaInsets();
+  const bottom = keyboardHeight ? keyboardHeight + 12 : inTabs ? 12 : Math.max(insets.bottom, 20);
+  return (
+    <View style={[styles.footer, { paddingBottom: bottom }]}>
+      {children}
+    </View>
+  );
+}
+
+// iOS draws the keyboard over the app, so the footer moves up by its height.
+// Android shrinks the screen itself when the keyboard opens, so this stays 0.
+// Assumes the screen reaches the bottom of the window (true for stack screens,
+// not for tab screens, which have the tab bar underneath).
+function useKeyboardHeight() {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    // Animate with the keyboard so the footer slides rather than jumps
+    const update = (event, newHeight) => {
+      LayoutAnimation.configureNext({ duration: event.duration, update: { type: 'keyboard' } });
+      setHeight(newHeight);
+    };
+    const show = Keyboard.addListener('keyboardWillShow', (event) => update(event, event.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardWillHide', (event) => update(event, 0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return height;
 }
 
 export function Field({ label, error, ...inputProps }) {
@@ -31,18 +75,25 @@ export function Field({ label, error, ...inputProps }) {
   );
 }
 
+// variant: 'primary', 'secondary' (outlined) or 'danger' (outlined red, e.g. delete)
 export function Button({ title, onPress, busy, variant = 'primary' }) {
-  const secondary = variant === 'secondary';
+  const outlined = variant === 'secondary' || variant === 'danger';
+  const danger = variant === 'danger';
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.button, secondary && styles.buttonSecondary, (pressed || busy) && { opacity: 0.7 }]}
+      style={({ pressed }) => [
+        styles.button, outlined && styles.buttonSecondary, danger && styles.buttonDanger,
+        (pressed || busy) && { opacity: 0.7 },
+      ]}
     >
       {busy
-        ? <ActivityIndicator color={secondary ? '#0f4c81' : '#fff'} />
-        : <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{title}</Text>}
+        ? <ActivityIndicator color={danger ? '#dc2626' : outlined ? '#0f4c81' : '#fff'} />
+        : <Text style={[styles.buttonText, outlined && styles.buttonTextSecondary, danger && styles.buttonTextDanger]}>
+          {title}
+        </Text>}
     </Pressable>
   );
 }
@@ -55,6 +106,7 @@ export function Message({ text, kind = 'error' }) {
 
 export const styles = StyleSheet.create({
   screen: { padding: 20, gap: 14, flexGrow: 1 },
+  footer: { gap: 10, paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0', backgroundColor: '#fff' },
   heading: { fontSize: 26, fontWeight: 'bold', color: '#0f172a' },
   subtle: { color: '#475569' },
   label: { fontWeight: '600', color: '#0f172a' },
@@ -67,5 +119,7 @@ export const styles = StyleSheet.create({
   buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#0f4c81' },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   buttonTextSecondary: { color: '#0f4c81' },
+  buttonDanger: { borderColor: '#dc2626' },
+  buttonTextDanger: { color: '#dc2626' },
   link: { color: '#0f4c81', fontWeight: '600', textAlign: 'center', padding: 6 },
 });

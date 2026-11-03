@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
 import { validateDob, validateName } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
@@ -23,6 +24,7 @@ export default function Profile() {
       .select('id, name, dob, role')
       .eq('id', userId)
       .single();
+    logError('profile.load', error);
     if (error) return setMessage({ text: `Could not load profile: ${error.message}`, kind: 'error' });
     setProfile(data);
     // Parents have no date of birth
@@ -45,6 +47,7 @@ export default function Profile() {
       .single();
     setBusy(false);
 
+    logError('profile.save', error);
     if (error) return setMessage({ text: `Save failed: ${error.message}`, kind: 'error' });
     setProfile(data);
     setEditing(false);
@@ -62,20 +65,33 @@ export default function Profile() {
   async function logOut() {
     const { error } = await supabase.auth.signOut();
     // On success the root layout sees the session end and returns to login
+    logError('profile.logOut', error);
     if (error) setMessage({ text: `Log out failed: ${error.message}`, kind: 'error' });
   }
 
   if (!profile) {
     return (
-      <Screen>
+      <Screen footer={<Button title="Log out" variant="secondary" onPress={logOut} />}>
         {message.text ? <Message text={message.text} kind={message.kind} /> : <ActivityIndicator />}
-        <Button title="Log out" variant="secondary" onPress={logOut} />
       </Screen>
     );
   }
 
   return (
-    <Screen>
+    <Screen footer={<>
+      <Message text={message.text} kind={message.kind} />
+      {editing ? (
+        <>
+          <Button title="Save changes" onPress={save} busy={busy} />
+          <Button title="Cancel" variant="secondary" onPress={cancel} />
+        </>
+      ) : (
+        <>
+          <Button title="Edit profile" onPress={() => { setMessage({ text: '' }); setEditing(true); }} />
+          <Button title="Log out" variant="secondary" onPress={logOut} />
+        </>
+      )}
+    </>}>
       <View>
         <Text style={styles.heading}>{profile.name}</Text>
         <Text style={[styles.subtle, { textTransform: 'capitalize' }]}>{profile.role}</Text>
@@ -87,20 +103,6 @@ export default function Profile() {
       <Field label="Date of birth" value={form.dob} error={errors.dob} editable={editing}
         placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation"
         onChangeText={(dob) => setForm((f) => ({ ...f, dob }))} />
-
-      <Message text={message.text} kind={message.kind} />
-
-      {editing ? (
-        <>
-          <Button title="Save changes" onPress={save} busy={busy} />
-          <Button title="Cancel" variant="secondary" onPress={cancel} />
-        </>
-      ) : (
-        <Button title="Edit profile" onPress={() => { setMessage({ text: '' }); setEditing(true); }} />
-      )}
-
-      <View style={{ flex: 1 }} />
-      <Button title="Log out" variant="secondary" onPress={logOut} />
     </Screen>
   );
 }

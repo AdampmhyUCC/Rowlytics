@@ -6,5 +6,5 @@ export default function Index() {
   if (!session) return <Redirect href="/login" />;
   // Parents only use the app to give consent
   if (role === 'parent') return <Redirect href="/parent-consent" />;
-  return <Redirect href={consentPending ? '/waiting-for-consent' : '/profile'} />;
+  return <Redirect href={consentPending ? '/waiting-for-consent' : '/home'} />;
 }

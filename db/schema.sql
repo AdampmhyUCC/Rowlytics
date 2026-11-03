@@ -2,12 +2,9 @@
 -- WARNING: the DROP lines delete all data. Never run on the pilot database.
 -- Run in the Supabase SQL Editor to rebuild the tables.
 -- User accounts and roles live in profiles.sql (not dropped by this file).
--- After this file, run profiles.sql then consent.sql.
+-- After this file, run profiles.sql, consent.sql, then training.sql.
 
 DROP TABLE IF EXISTS parental_consents;
-DROP TABLE IF EXISTS completed_training;
-DROP TABLE IF EXISTS athletes;
-
 DROP TABLE IF EXISTS completed_training;
 DROP TABLE IF EXISTS athletes;
 
@@ -27,8 +24,8 @@ CREATE TABLE completed_training (
   athlete_id       UUID NOT NULL REFERENCES athletes(athlete_id) ON DELETE CASCADE,
   session_date     DATE NOT NULL DEFAULT CURRENT_DATE,
   modality         VARCHAR(30),
-  volume           INT,
-  duration_minutes INT,
+  distance_m       INT,
+  duration_seconds INT,
   heart_rate       SMALLINT,
   rpe              SMALLINT CHECK (rpe BETWEEN 1 AND 10),
   notes            TEXT,

@@ -38,7 +38,12 @@ function RootStack() {
       </Stack.Protected>
 
       <Stack.Protected guard={!!session && !consentPending}>
+        {/* Tabs draw their own header (see (tabs)/_layout.js) */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
         <Stack.Screen name="profile" options={{ title: 'My profile' }} />
+        {/* One form for logging and editing a session (screens/SessionFormScreen.js) */}
+        <Stack.Screen name="session/new" options={{ title: 'Log session', presentation: 'modal' }} />
+        <Stack.Screen name="session/[id]" options={{ title: 'Edit session', presentation: 'modal' }} />
       </Stack.Protected>
 
       {/* Under-16 athletes see only this screen until a parent approves */}

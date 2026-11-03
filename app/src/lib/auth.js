@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { AppState } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
+import { logError } from './log';
 
 // Only refresh tokens while the app is in the foreground (Supabase's React Native advice)
 AppState.addEventListener('change', (state) => {
@@ -83,7 +84,7 @@ export function AuthProvider({ children }) {
       return newAccount.consentPending;
     } catch (error) {
       // Don't lock the user out over a network error; the database still enforces consent
-      console.warn('Could not check parental consent:', error.message);
+      logError('auth.checkConsent', error);
       setAccount((current) => current ?? { role: null, consentPending: false });
       return null;
     }
@@ -115,7 +116,10 @@ export function AuthProvider({ children }) {
     if (!url) return;
     createSessionFromUrl(url)
       .then(() => setLinkError(null))
-      .catch((error) => setLinkError(error.message));
+      .catch((error) => {
+        logError('auth.emailLink', error);
+        setLinkError(error.message);
+      });
   }, [url]);
 
   return (

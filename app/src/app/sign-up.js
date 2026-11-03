@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { Link } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
+import { logError } from '../lib/log';
 import { validateDob, validateEmail, validateName, validatePassword } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 
@@ -37,6 +38,7 @@ export default function SignUp() {
     });
     setBusy(false);
 
+    logError('signUp', error);
     if (error) return setMessage({ text: error.message, kind: 'error' });
     // With email confirmation on, Supabase returns no session until the link is tapped
     if (!data.session) {
@@ -45,7 +47,10 @@ export default function SignUp() {
   }
 
   return (
-    <Screen>
+    <Screen footer={<>
+      <Message text={message.text} kind={message.kind} />
+      <Button title="Sign up" onPress={signUp} busy={busy} />
+    </>}>
       <Text style={styles.heading}>Create your profile</Text>
 
       <Field label="Full name" value={form.name} onChangeText={update('name')} error={errors.name}
@@ -57,9 +62,6 @@ export default function SignUp() {
         keyboardType="email-address" textContentType="emailAddress" />
       <Field label="Password" value={form.password} onChangeText={update('password')} error={errors.password}
         secureTextEntry autoComplete="new-password" textContentType="newPassword" />
-
-      <Message text={message.text} kind={message.kind} />
-      <Button title="Sign up" onPress={signUp} busy={busy} />
 
       <Link href="/login" style={styles.link}>Already have an account? Log in</Link>
     </Screen>
