@@ -17,7 +17,7 @@ export default function Login() {
     setError('');
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
-    // On success the root layout sees the new session and moves to the profile screen
+    // On success the root layout sees the new session and moves to the home screen
     logError('login', error);
     if (error) setError(error.message);
   }

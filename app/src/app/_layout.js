@@ -38,6 +38,8 @@ function RootStack() {
       </Stack.Protected>
 
       <Stack.Protected guard={!!session && !consentPending}>
+        {/* Tabs draw their own header (see (tabs)/_layout.js) */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
         <Stack.Screen name="profile" options={{ title: 'My profile' }} />
       </Stack.Protected>
 
