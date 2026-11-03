@@ -11,7 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // footer holds the screen's buttons (and the message above them). It stays
 // pinned to the bottom, above the home indicator, instead of scrolling away.
 export function Screen({ children, footer }) {
-  const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
   return (
     <View style={{ flex: 1 }}>
@@ -24,11 +23,18 @@ export function Screen({ children, footer }) {
       >
         {children}
       </ScrollView>
-      {footer ? (
-        <View style={[styles.footer, { paddingBottom: keyboardHeight ? keyboardHeight + 12 : Math.max(insets.bottom, 20) }]}>
-          {footer}
-        </View>
-      ) : null}
+      {footer ? <Footer keyboardHeight={keyboardHeight}>{footer}</Footer> : null}
+    </View>
+  );
+}
+
+// The pinned button area. Also used on its own by list screens, which can't
+// sit inside Screen's ScrollView.
+export function Footer({ children, keyboardHeight = 0 }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.footer, { paddingBottom: keyboardHeight ? keyboardHeight + 12 : Math.max(insets.bottom, 20) }]}>
+      {children}
     </View>
   );
 }
@@ -67,18 +73,25 @@ export function Field({ label, error, ...inputProps }) {
   );
 }
 
+// variant: 'primary', 'secondary' (outlined) or 'danger' (outlined red, e.g. delete)
 export function Button({ title, onPress, busy, variant = 'primary' }) {
-  const secondary = variant === 'secondary';
+  const outlined = variant === 'secondary' || variant === 'danger';
+  const danger = variant === 'danger';
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.button, secondary && styles.buttonSecondary, (pressed || busy) && { opacity: 0.7 }]}
+      style={({ pressed }) => [
+        styles.button, outlined && styles.buttonSecondary, danger && styles.buttonDanger,
+        (pressed || busy) && { opacity: 0.7 },
+      ]}
     >
       {busy
-        ? <ActivityIndicator color={secondary ? '#0f4c81' : '#fff'} />
-        : <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{title}</Text>}
+        ? <ActivityIndicator color={danger ? '#dc2626' : outlined ? '#0f4c81' : '#fff'} />
+        : <Text style={[styles.buttonText, outlined && styles.buttonTextSecondary, danger && styles.buttonTextDanger]}>
+          {title}
+        </Text>}
     </Pressable>
   );
 }
@@ -104,5 +117,7 @@ export const styles = StyleSheet.create({
   buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#0f4c81' },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   buttonTextSecondary: { color: '#0f4c81' },
+  buttonDanger: { borderColor: '#dc2626' },
+  buttonTextDanger: { color: '#dc2626' },
   link: { color: '#0f4c81', fontWeight: '600', textAlign: 'center', padding: 6 },
 });
