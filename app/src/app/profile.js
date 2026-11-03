@@ -79,7 +79,7 @@ export default function Profile() {
   }
 
   return (
-    <Screen>
+    <Screen footer={<Button title="Log out" variant="secondary" onPress={logOut} />}>
       <View>
         <Text style={styles.heading}>{profile.name}</Text>
         <Text style={[styles.subtle, { textTransform: 'capitalize' }]}>{profile.role}</Text>
@@ -102,9 +102,6 @@ export default function Profile() {
       ) : (
         <Button title="Edit profile" onPress={() => { setMessage({ text: '' }); setEditing(true); }} />
       )}
-
-      <View style={{ flex: 1 }} />
-      <Button title="Log out" variant="secondary" onPress={logOut} />
     </Screen>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
@@ -84,7 +84,7 @@ export default function WaitingForConsent() {
   }
 
   return (
-    <Screen>
+    <Screen footer={<Button title="Log out" variant="secondary" onPress={logOut} />}>
       <Text style={styles.heading}>Waiting for your parent</Text>
       <Text style={styles.subtle}>
         Because you're under 16, a parent or guardian needs to approve your account
@@ -111,9 +111,6 @@ export default function WaitingForConsent() {
       {sentTo ? (
         <Button title="My parent has approved" variant="secondary" onPress={checkAgain} busy={busy === 'check'} />
       ) : null}
-
-      <View style={{ flex: 1 }} />
-      <Button title="Log out" variant="secondary" onPress={logOut} />
     </Screen>
   );
 }

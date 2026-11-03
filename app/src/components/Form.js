@@ -1,19 +1,29 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Shared building blocks for the auth and profile screens
 
 // contentInsetAdjustmentBehavior keeps content below the see-through iOS header;
-// automaticallyAdjustKeyboardInsets scrolls fields above the keyboard
-export function Screen({ children }) {
+// automaticallyAdjustKeyboardInsets scrolls fields above the keyboard.
+// footer (e.g. Log out) stays pinned to the bottom, above the home indicator,
+// instead of scrolling with the content.
+export function Screen({ children, footer }) {
+  const insets = useSafeAreaInsets();
   return (
-    <ScrollView
-      contentContainerStyle={styles.screen}
-      contentInsetAdjustmentBehavior="automatic"
-      automaticallyAdjustKeyboardInsets
-      keyboardShouldPersistTaps="handled"
-    >
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.screen}
+        contentInsetAdjustmentBehavior="automatic"
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+      >
+        {children}
+      </ScrollView>
+      {footer ? (
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>{footer}</View>
+      ) : null}
+    </View>
   );
 }
 
@@ -55,6 +65,7 @@ export function Message({ text, kind = 'error' }) {
 
 export const styles = StyleSheet.create({
   screen: { padding: 20, gap: 14, flexGrow: 1 },
+  footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0', backgroundColor: '#fff' },
   heading: { fontSize: 26, fontWeight: 'bold', color: '#0f172a' },
   subtle: { color: '#475569' },
   label: { fontWeight: '600', color: '#0f172a' },
