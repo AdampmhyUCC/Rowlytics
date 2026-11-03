@@ -29,11 +29,13 @@ export function Screen({ children, footer }) {
 }
 
 // The pinned button area. Also used on its own by list screens, which can't
-// sit inside Screen's ScrollView.
-export function Footer({ children, keyboardHeight = 0 }) {
+// sit inside Screen's ScrollView. inTabs: the tab bar below already keeps
+// clear of the home indicator, so no extra space is needed.
+export function Footer({ children, keyboardHeight = 0, inTabs = false }) {
   const insets = useSafeAreaInsets();
+  const bottom = keyboardHeight ? keyboardHeight + 12 : inTabs ? 12 : Math.max(insets.bottom, 20);
   return (
-    <View style={[styles.footer, { paddingBottom: keyboardHeight ? keyboardHeight + 12 : Math.max(insets.bottom, 20) }]}>
+    <View style={[styles.footer, { paddingBottom: bottom }]}>
       {children}
     </View>
   );
