@@ -71,15 +71,27 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <Screen>
+      <Screen footer={<Button title="Log out" variant="secondary" onPress={logOut} />}>
         {message.text ? <Message text={message.text} kind={message.kind} /> : <ActivityIndicator />}
-        <Button title="Log out" variant="secondary" onPress={logOut} />
       </Screen>
     );
   }
 
   return (
-    <Screen footer={<Button title="Log out" variant="secondary" onPress={logOut} />}>
+    <Screen footer={<>
+      <Message text={message.text} kind={message.kind} />
+      {editing ? (
+        <>
+          <Button title="Save changes" onPress={save} busy={busy} />
+          <Button title="Cancel" variant="secondary" onPress={cancel} />
+        </>
+      ) : (
+        <>
+          <Button title="Edit profile" onPress={() => { setMessage({ text: '' }); setEditing(true); }} />
+          <Button title="Log out" variant="secondary" onPress={logOut} />
+        </>
+      )}
+    </>}>
       <View>
         <Text style={styles.heading}>{profile.name}</Text>
         <Text style={[styles.subtle, { textTransform: 'capitalize' }]}>{profile.role}</Text>
@@ -91,17 +103,6 @@ export default function Profile() {
       <Field label="Date of birth" value={form.dob} error={errors.dob} editable={editing}
         placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation"
         onChangeText={(dob) => setForm((f) => ({ ...f, dob }))} />
-
-      <Message text={message.text} kind={message.kind} />
-
-      {editing ? (
-        <>
-          <Button title="Save changes" onPress={save} busy={busy} />
-          <Button title="Cancel" variant="secondary" onPress={cancel} />
-        </>
-      ) : (
-        <Button title="Edit profile" onPress={() => { setMessage({ text: '' }); setEditing(true); }} />
-      )}
     </Screen>
   );
 }

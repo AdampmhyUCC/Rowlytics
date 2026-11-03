@@ -28,7 +28,10 @@ export default function ForgotPassword() {
   }
 
   return (
-    <Screen>
+    <Screen footer={<>
+      <Message text={message.text} kind={message.kind} />
+      <Button title="Send reset link" onPress={sendReset} busy={busy} />
+    </>}>
       <Text style={styles.subtle}>Enter your email and we'll send you a link to set a new password.</Text>
       <Field
         label="Email"
@@ -40,8 +43,6 @@ export default function ForgotPassword() {
         keyboardType="email-address"
         textContentType="emailAddress"
       />
-      <Message text={message.text} kind={message.kind} />
-      <Button title="Send reset link" onPress={sendReset} busy={busy} />
     </Screen>
   );
 }

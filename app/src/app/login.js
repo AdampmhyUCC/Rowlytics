@@ -23,7 +23,10 @@ export default function Login() {
   }
 
   return (
-    <Screen>
+    <Screen footer={<>
+      <Message text={error} />
+      <Button title="Log in" onPress={logIn} busy={busy} />
+    </>}>
       <Text style={styles.heading}>Rowlytics</Text>
       <Text style={styles.subtle}>Log in to record your training.</Text>
 
@@ -46,9 +49,6 @@ export default function Login() {
         textContentType="password"
         onSubmitEditing={logIn}
       />
-
-      <Message text={error} />
-      <Button title="Log in" onPress={logIn} busy={busy} />
 
       <Link href="/forgot-password" style={styles.link}>Forgot password?</Link>
       <Link href="/sign-up" style={styles.link}>New to Rowlytics? Create an account</Link>
