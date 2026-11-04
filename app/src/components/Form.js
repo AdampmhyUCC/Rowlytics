@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // contentInsetAdjustmentBehavior keeps content below the see-through iOS header;
 // automaticallyAdjustKeyboardInsets scrolls fields above the keyboard.
+// alwaysBounceVertical={false} keeps short screens still; they only scroll
+// when the content is taller than the screen.
 // footer holds the screen's buttons (and the message above them). It stays
 // pinned to the bottom, above the home indicator, instead of scrolling away.
 export function Screen({ children, footer }) {
@@ -19,6 +21,7 @@ export function Screen({ children, footer }) {
         contentContainerStyle={styles.screen}
         contentInsetAdjustmentBehavior="automatic"
         automaticallyAdjustKeyboardInsets
+        alwaysBounceVertical={false}
         keyboardShouldPersistTaps="handled"
       >
         {children}
@@ -76,12 +79,14 @@ export function Field({ label, error, ...inputProps }) {
 }
 
 // variant: 'primary', 'secondary' (outlined) or 'danger' (outlined red, e.g. delete)
+// Closes the keyboard first, so the next screen doesn't open with the scroll
+// position still shifted for it
 export function Button({ title, onPress, busy, variant = 'primary' }) {
   const outlined = variant === 'secondary' || variant === 'danger';
   const danger = variant === 'danger';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={(event) => { Keyboard.dismiss(); onPress?.(event); }}
       disabled={busy}
       accessibilityRole="button"
       style={({ pressed }) => [

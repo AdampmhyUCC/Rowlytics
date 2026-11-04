@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Text } from 'react-native';
+import { Platform, Text } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
@@ -13,6 +13,16 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Reset links open this page on the web build; the user then logs in back in the app
+  if (saved) {
+    return (
+      <Screen>
+        <Message text="Password changed. Go back to Rowlytics in Expo Go and log in with your new password." kind="success" />
+      </Screen>
+    );
+  }
 
   // The reset link signs the user in (see AuthProvider); without that we can't change anything
   if (!session) {
@@ -33,6 +43,7 @@ export default function ResetPassword() {
     setBusy(false);
     logError('resetPassword', error);
     if (error) return setError(error.message);
+    if (Platform.OS === 'web') return setSaved(true);
     router.replace('/profile');
   }
 

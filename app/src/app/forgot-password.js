@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Text } from 'react-native';
-import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
 import { validateEmail } from '../lib/validation';
@@ -16,9 +15,10 @@ export default function ForgotPassword() {
     if (invalid) return setMessage({ text: invalid, kind: 'error' });
 
     setBusy(true);
-    // Supabase emails a link that opens the app on the reset-password screen
+    // Supabase emails a link to the reset-password page on the web build, which
+    // works on any device (Expo Go can't reliably take the login tokens from a link)
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: Linking.createURL('/reset-password'),
+      redirectTo: `${process.env.EXPO_PUBLIC_WEB_URL}/reset-password`,
     });
     setBusy(false);
 

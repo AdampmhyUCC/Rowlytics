@@ -18,6 +18,9 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     // On success the root layout sees the new session and moves to the home screen
+    if (error?.code === 'email_not_confirmed') {
+      return setError("Your email isn't confirmed yet. Tap the link in the email we sent you.");
+    }
     logError('login', error);
     if (error) setError(error.message);
   }
