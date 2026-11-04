@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
 import { logError } from './log';
@@ -10,9 +11,21 @@ AppState.addEventListener('change', (state) => {
   else supabase.auth.stopAutoRefresh();
 });
 
+// Set once an account has been used on this device, so first opens go to sign up
+const ACCOUNT_USED_KEY = 'rowlytics.accountUsed';
+
+export async function rememberAccountUsed() {
+  try {
+    await AsyncStorage.setItem(ACCOUNT_USED_KEY, 'true');
+  } catch (error) {
+    logError('auth.rememberAccountUsed', error);
+  }
+}
+
 const AuthContext = createContext({
   session: null,
   loading: true,
+  accountUsed: true,
   linkError: null,
   role: null,
   consentPending: null,
@@ -69,6 +82,8 @@ async function fetchAccount(userId) {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  // null until read from storage
+  const [accountUsed, setAccountUsed] = useState(null);
   const [linkError, setLinkError] = useState(null);
   // null until checked for the signed-in user
   const [account, setAccount] = useState(null);
@@ -102,6 +117,19 @@ export function AuthProvider({ children }) {
   }, [refreshConsent]);
 
   useEffect(() => {
+    AsyncStorage.getItem(ACCOUNT_USED_KEY)
+      .then((value) => setAccountUsed(value === 'true'))
+      // If storage fails, fall back to the log in screen
+      .catch(() => setAccountUsed(true));
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    setAccountUsed(true);
+    rememberAccountUsed();
+  }, [userId]);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
@@ -125,7 +153,8 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       session,
-      loading,
+      loading: loading || accountUsed === null,
+      accountUsed,
       linkError,
       role: account?.role ?? null,
       consentPending: account?.consentPending ?? null,
