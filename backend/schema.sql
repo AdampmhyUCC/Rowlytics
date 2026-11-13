@@ -10,8 +10,7 @@ DROP TABLE IF EXISTS athletes;
 
 CREATE TABLE athletes (
   athlete_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name                VARCHAR(100) NOT NULL,
-  dob                 DATE NOT NULL,
+  -- Name and date of birth live in profiles (linked by profile_id in profiles.sql)
   gender              VARCHAR(20),
   parental_consent_at TIMESTAMPTZ,
   parental_consent_by VARCHAR(254),

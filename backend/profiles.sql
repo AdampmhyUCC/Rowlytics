@@ -37,6 +37,18 @@ GRANT UPDATE (name, dob) ON public.profiles TO authenticated;
 ALTER TABLE public.athletes
   ADD COLUMN IF NOT EXISTS profile_id UUID UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE;
 
+-- Name and dob now live only in profiles. Older databases still have the
+-- athletes copies; stop requiring them here so sign-up keeps working, and
+-- consent.sql drops them once nothing reads them.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'athletes' AND column_name = 'name') THEN
+    ALTER TABLE public.athletes ALTER COLUMN name DROP NOT NULL;
+    ALTER TABLE public.athletes ALTER COLUMN dob DROP NOT NULL;
+  END IF;
+END $$;
+
 -- Remove the old open dev access: signed-out users can't touch athlete data.
 DROP POLICY IF EXISTS "temp_dev_access" ON public.athletes;
 DROP POLICY IF EXISTS "temp_dev_access" ON public.completed_training;
@@ -77,8 +89,7 @@ BEGIN
   );
   -- Everyone who signs up is an athlete for now. When coaches/parents can
   -- sign up, only do this for role = 'athlete'.
-  INSERT INTO public.athletes (profile_id, name, dob)
-  SELECT id, name, dob FROM public.profiles WHERE id = NEW.id;
+  INSERT INTO public.athletes (profile_id) VALUES (NEW.id);
   RETURN NEW;
 END;
 $$;
@@ -88,29 +99,13 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Keep the athlete's name and dob in step when they edit their profile.
-CREATE OR REPLACE FUNCTION public.sync_athlete_from_profile()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-BEGIN
-  UPDATE public.athletes
-  SET name = NEW.name, dob = NEW.dob
-  WHERE profile_id = NEW.id;
-  RETURN NEW;
-END;
-$$;
-
+-- athletes no longer copies name and dob, so nothing needs syncing
 DROP TRIGGER IF EXISTS on_profile_updated ON public.profiles;
-CREATE TRIGGER on_profile_updated
-  AFTER UPDATE OF name, dob ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.sync_athlete_from_profile();
+DROP FUNCTION IF EXISTS public.sync_athlete_from_profile();
 
 -- Give athlete accounts created before this change their athlete record.
-INSERT INTO public.athletes (profile_id, name, dob)
-SELECT p.id, p.name, p.dob
+INSERT INTO public.athletes (profile_id)
+SELECT p.id
 FROM public.profiles p
 WHERE p.role = 'athlete'
   AND NOT EXISTS (SELECT 1 FROM public.athletes a WHERE a.profile_id = p.id);
