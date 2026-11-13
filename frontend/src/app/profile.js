@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { Link } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
@@ -103,6 +104,11 @@ export default function Profile() {
       <Field label="Date of birth" value={form.dob} error={errors.dob} editable={editing}
         placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation"
         onChangeText={(dob) => setForm((f) => ({ ...f, dob }))} />
+
+      {/* Read the privacy notice again and change whether coaches see your training */}
+      {profile.role === 'athlete' && !editing ? (
+        <Link href="/privacy-notice" style={styles.link}>Privacy and data sharing</Link>
+      ) : null}
     </Screen>
   );
 }

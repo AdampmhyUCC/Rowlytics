@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
 import { logError } from './log';
+import { PRIVACY_NOTICE_VERSION } from './privacyNotice';
 
 // Only refresh tokens while the app is in the foreground (Supabase's React Native advice)
 AppState.addEventListener('change', (state) => {
@@ -29,6 +30,7 @@ const AuthContext = createContext({
   linkError: null,
   role: null,
   consentPending: null,
+  privacyNoticeDue: false,
   refreshConsent: async () => null,
 });
 
@@ -63,9 +65,10 @@ async function createSessionFromUrl(url) {
   }
 }
 
-// The user's role, and whether they're an athlete under 16 still waiting for a
-// parent. The database decides, and also blocks pending athletes itself; this
-// only picks which screens to show.
+// The user's role, whether they're an athlete under 16 still waiting for a
+// parent, and whether they still need to answer the current privacy notice.
+// The database decides, and also blocks pending athletes itself; this only
+// picks which screens to show.
 async function fetchAccount(userId) {
   const { data: profile, error } = await supabase
     .from('profiles')
@@ -73,10 +76,21 @@ async function fetchAccount(userId) {
     .eq('id', userId)
     .single();
   if (error) throw error;
-  if (profile.role !== 'athlete') return { role: profile.role, consentPending: false };
+  if (profile.role !== 'athlete') return { role: profile.role, consentPending: false, privacyNoticeDue: false };
   const { data: active, error: rpcError } = await supabase.rpc('is_active_athlete');
   if (rpcError) throw rpcError;
-  return { role: profile.role, consentPending: !active };
+  if (!active) return { role: profile.role, consentPending: true, privacyNoticeDue: false };
+  // RLS only returns the athlete's own row
+  const { data: athlete, error: athleteError } = await supabase
+    .from('athletes')
+    .select('privacy_notice_version')
+    .single();
+  if (athleteError) throw athleteError;
+  return {
+    role: profile.role,
+    consentPending: false,
+    privacyNoticeDue: (athlete.privacy_notice_version ?? 0) < PRIVACY_NOTICE_VERSION,
+  };
 }
 
 export function AuthProvider({ children }) {
@@ -90,7 +104,8 @@ export function AuthProvider({ children }) {
   const url = Linking.useURL();
   const userId = session?.user.id;
 
-  // Returns the new value so callers can tell if the athlete is still pending
+  // Re-reads the whole account (consent and privacy notice). Returns whether
+  // the athlete is still pending so callers can tell
   const refreshConsent = useCallback(async () => {
     if (!userId) return null;
     try {
@@ -100,7 +115,7 @@ export function AuthProvider({ children }) {
     } catch (error) {
       // Don't lock the user out over a network error; the database still enforces consent
       logError('auth.checkConsent', error);
-      setAccount((current) => current ?? { role: null, consentPending: false });
+      setAccount((current) => current ?? { role: null, consentPending: false, privacyNoticeDue: false });
       return null;
     }
   }, [userId]);
@@ -158,6 +173,7 @@ export function AuthProvider({ children }) {
       linkError,
       role: account?.role ?? null,
       consentPending: account?.consentPending ?? null,
+      privacyNoticeDue: account?.privacyNoticeDue ?? false,
       refreshConsent,
     }}>
       {children}
