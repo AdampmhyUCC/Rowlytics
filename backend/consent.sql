@@ -73,8 +73,9 @@ SET search_path = ''
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.athletes a
+    JOIN public.profiles p ON p.id = a.profile_id
     WHERE a.profile_id = (SELECT auth.uid())
-      AND NOT public.needs_parental_consent(a.dob, a.parental_consent_at)
+      AND NOT public.needs_parental_consent(p.dob, a.parental_consent_at)
   );
 $$;
 
@@ -92,16 +93,18 @@ CREATE POLICY "completed_training_own_active" ON public.completed_training
   );
 
 -- Stop a pending athlete editing their date of birth to 16+ to skip consent.
--- Profile edits reach athletes through sync_athlete_from_profile, so raising
--- here rolls back the profile update too.
+-- The athlete can read their own athletes row, so this runs as them.
 CREATE OR REPLACE FUNCTION public.lock_dob_while_pending()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-  IF NEW.dob IS DISTINCT FROM OLD.dob
-     AND public.needs_parental_consent(OLD.dob, OLD.parental_consent_at) THEN
+  IF NEW.dob IS DISTINCT FROM OLD.dob AND EXISTS (
+    SELECT 1 FROM public.athletes a
+    WHERE a.profile_id = OLD.id
+      AND public.needs_parental_consent(OLD.dob, a.parental_consent_at)
+  ) THEN
     RAISE EXCEPTION 'Date of birth can''t be changed while waiting for parental consent';
   END IF;
   RETURN NEW;
@@ -109,8 +112,9 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS athletes_lock_dob_while_pending ON public.athletes;
-CREATE TRIGGER athletes_lock_dob_while_pending
-  BEFORE UPDATE OF dob ON public.athletes
+DROP TRIGGER IF EXISTS profiles_lock_dob_while_pending ON public.profiles;
+CREATE TRIGGER profiles_lock_dob_while_pending
+  BEFORE UPDATE OF dob ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.lock_dob_while_pending();
 
 -- Called by a pending athlete before the app emails their parent a sign-in link.
@@ -122,11 +126,16 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_athlete public.athletes;
+  v_athlete_id UUID;
+  v_pending BOOLEAN;
   v_email TEXT := lower(trim(p_parent_email));
 BEGIN
-  SELECT * INTO v_athlete FROM public.athletes WHERE profile_id = (SELECT auth.uid());
-  IF NOT FOUND OR NOT public.needs_parental_consent(v_athlete.dob, v_athlete.parental_consent_at) THEN
+  SELECT a.athlete_id, public.needs_parental_consent(p.dob, a.parental_consent_at)
+  INTO v_athlete_id, v_pending
+  FROM public.athletes a
+  JOIN public.profiles p ON p.id = a.profile_id
+  WHERE a.profile_id = (SELECT auth.uid());
+  IF NOT FOUND OR NOT v_pending THEN
     RAISE EXCEPTION 'Only athletes waiting for parental consent can send a request';
   END IF;
   IF v_email IS NULL OR v_email !~ '^\S+@\S+\.\S+$' OR length(v_email) > 254 THEN
@@ -138,9 +147,9 @@ BEGIN
 
   -- Replace any earlier request, e.g. one sent to a mistyped email
   DELETE FROM public.parental_consents
-  WHERE athlete_id = v_athlete.athlete_id AND approved_at IS NULL;
+  WHERE athlete_id = v_athlete_id AND approved_at IS NULL;
   INSERT INTO public.parental_consents (athlete_id, parent_email)
-  VALUES (v_athlete.athlete_id, v_email);
+  VALUES (v_athlete_id, v_email);
 END;
 $$;
 
@@ -198,9 +207,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT c.consent_id, a.name, date_part('year', age(a.dob))::INT, c.requested_at
+  SELECT c.consent_id, p.name, date_part('year', age(p.dob))::INT, c.requested_at
   FROM public.parental_consents c
   JOIN public.athletes a ON a.athlete_id = c.athlete_id
+  JOIN public.profiles p ON p.id = a.profile_id
   JOIN auth.users u ON u.id = (SELECT auth.uid())
   WHERE c.approved_at IS NULL
     AND u.email_confirmed_at IS NOT NULL
@@ -217,3 +227,8 @@ GRANT EXECUTE ON FUNCTION public.is_active_athlete() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.request_parental_consent(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.approve_parental_consent(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_my_consent_requests() TO authenticated;
+
+-- Name and dob live only in profiles now. Drop the old athletes copies last,
+-- after the functions above stop reading them.
+ALTER TABLE public.athletes DROP COLUMN IF EXISTS name;
+ALTER TABLE public.athletes DROP COLUMN IF EXISTS dob;
