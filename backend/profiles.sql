@@ -32,6 +32,35 @@ REVOKE ALL ON public.profiles FROM anon, authenticated;
 GRANT SELECT ON public.profiles TO authenticated;
 GRANT UPDATE (name, dob) ON public.profiles TO authenticated;
 
+-- Coaches (issue #31). Anyone can sign up as a coach, but the role on its own
+-- shows them no athlete data: that only comes from athletes joining their
+-- squads and choosing to share (#33). Coaches must be 18 or over and agree to
+-- the safeguarding statement when they sign up.
+-- safeguarding_agreed_at: when they agreed (set by the sign-up trigger only)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS safeguarding_agreed_at TIMESTAMPTZ;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_coach_safeguarding;
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_coach_safeguarding CHECK (role <> 'coach' OR safeguarding_agreed_at IS NOT NULL);
+
+-- Checked on sign-up and whenever a coach edits their date of birth
+CREATE OR REPLACE FUNCTION public.check_coach_age()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.role = 'coach' AND (NEW.dob IS NULL OR NEW.dob > (CURRENT_DATE - INTERVAL '18 years')::date) THEN
+    RAISE EXCEPTION 'Coaches must be 18 or over';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS profiles_check_coach_age ON public.profiles;
+CREATE TRIGGER profiles_check_coach_age
+  BEFORE INSERT OR UPDATE OF dob, role ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.check_coach_age();
+
 -- Link each athlete record to the account that owns it.
 -- Nullable so existing test athletes (with no account) are kept.
 ALTER TABLE public.athletes
@@ -60,7 +89,8 @@ CREATE POLICY "athletes_select_own" ON public.athletes
   USING ((SELECT auth.uid()) = profile_id);
 
 -- Create the profile and athlete record when someone signs up, using the name
--- and dob the app sends as sign-up metadata. Role is never taken from the client.
+-- and dob the app sends as sign-up metadata. The metadata can only ask to be a
+-- coach; any other role in it is ignored and the user becomes an athlete.
 -- Needs the parental_consents table from consent.sql.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -81,14 +111,26 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Coaches get no athlete record, so they have no training log. Without the
+  -- safeguarding agreement (or under 18) the checks above fail the sign-up.
+  IF NEW.raw_user_meta_data ->> 'role' = 'coach' THEN
+    INSERT INTO public.profiles (id, role, name, dob, safeguarding_agreed_at)
+    VALUES (
+      NEW.id,
+      'coach',
+      NEW.raw_user_meta_data ->> 'name',
+      (NEW.raw_user_meta_data ->> 'dob')::date,
+      CASE WHEN NEW.raw_user_meta_data ->> 'safeguarding_agreed' = 'true' THEN now() END
+    );
+    RETURN NEW;
+  END IF;
+
   INSERT INTO public.profiles (id, name, dob)
   VALUES (
     NEW.id,
     NEW.raw_user_meta_data ->> 'name',
     (NEW.raw_user_meta_data ->> 'dob')::date
   );
-  -- Everyone who signs up is an athlete for now. When coaches/parents can
-  -- sign up, only do this for role = 'athlete'.
   INSERT INTO public.athletes (profile_id) VALUES (NEW.id);
   RETURN NEW;
 END;

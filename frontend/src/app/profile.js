@@ -35,7 +35,10 @@ export default function Profile() {
   useEffect(() => { if (userId) loadProfile(); }, [userId]);
 
   async function save() {
-    const newErrors = { name: validateName(form.name), dob: validateDob(form.dob) };
+    const newErrors = {
+      name: validateName(form.name),
+      dob: validateDob(form.dob, profile.role === 'coach' ? 18 : 0),
+    };
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) return;
 

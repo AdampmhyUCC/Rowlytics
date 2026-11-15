@@ -13,7 +13,7 @@ export default function RootLayout() {
 }
 
 function RootStack() {
-  const { session, loading, consentPending, privacyNoticeDue } = useAuth();
+  const { session, loading, role, consentPending, privacyNoticeDue } = useAuth();
 
   // Wait for the stored session so logged-in users don't flash the login screen,
   // and for the consent check so pending athletes don't flash the app
@@ -38,17 +38,29 @@ function RootStack() {
       </Stack.Protected>
 
       <Stack.Protected guard={!!session && !consentPending}>
-        {/* Athletes answer the privacy notice before the rest of the app opens,
-            and can come back to it from their profile */}
-        <Stack.Screen name="privacy-notice" options={{ title: 'Privacy and data sharing' }} />
+        {/* Athlete screens. A null role (account check failed offline) falls
+            back to these, as before coaches existed */}
+        <Stack.Protected guard={role !== 'coach'}>
+          {/* Athletes answer the privacy notice before the rest of the app opens,
+              and can come back to it from their profile */}
+          <Stack.Screen name="privacy-notice" options={{ title: 'Privacy and data sharing' }} />
+
+          <Stack.Protected guard={!privacyNoticeDue}>
+            {/* Tabs draw their own header (see (tabs)/_layout.js) */}
+            <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
+            {/* One form for logging and editing a session (screens/SessionFormScreen.js) */}
+            <Stack.Screen name="session/new" options={{ title: 'Log session', presentation: 'modal' }} />
+            <Stack.Screen name="session/[id]" options={{ title: 'Edit session', presentation: 'modal' }} />
+          </Stack.Protected>
+        </Stack.Protected>
+
+        {/* Coach screens; coaches have no training log or privacy notice */}
+        <Stack.Protected guard={role === 'coach'}>
+          <Stack.Screen name="(coach)" options={{ headerShown: false, title: 'Squads' }} />
+        </Stack.Protected>
 
         <Stack.Protected guard={!privacyNoticeDue}>
-          {/* Tabs draw their own header (see (tabs)/_layout.js) */}
-          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
           <Stack.Screen name="profile" options={{ title: 'My profile' }} />
-          {/* One form for logging and editing a session (screens/SessionFormScreen.js) */}
-          <Stack.Screen name="session/new" options={{ title: 'Log session', presentation: 'modal' }} />
-          <Stack.Screen name="session/[id]" options={{ title: 'Edit session', presentation: 'modal' }} />
         </Stack.Protected>
       </Stack.Protected>
 

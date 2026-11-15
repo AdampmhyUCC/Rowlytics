@@ -7,8 +7,9 @@ export function validateName(name) {
   return null;
 }
 
-// Date of birth typed as YYYY-MM-DD (the format Postgres DATE expects)
-export function validateDob(dob) {
+// Date of birth typed as YYYY-MM-DD (the format Postgres DATE expects).
+// minAge is only used for coaches (18), matching check_coach_age in profiles.sql
+export function validateDob(dob, minAge = 0) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return 'Enter date of birth as YYYY-MM-DD';
   const date = new Date(`${dob}T00:00:00Z`);
   // Catches impossible dates like 2005-02-30, which Date rolls over to March
@@ -17,6 +18,12 @@ export function validateDob(dob) {
   }
   if (date > new Date()) return 'Date of birth cannot be in the future';
   if (date.getUTCFullYear() < 1900) return 'Check the year of birth';
+  if (minAge) {
+    // Dates as YYYY-MM-DD strings compare in date order
+    const today = new Date();
+    const cutoff = `${today.getFullYear() - minAge}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (dob > cutoff) return `Coaches must be ${minAge} or over`;
+  }
   return null;
 }
 
