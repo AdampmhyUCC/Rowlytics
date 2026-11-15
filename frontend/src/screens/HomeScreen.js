@@ -8,6 +8,7 @@ import { fetchMyPlannedSessions } from '../lib/program';
 import { Button, Message, Screen, styles } from '../components/Form';
 import { PlannedSessionCard } from '../components/PlannedSessionCard';
 import { SessionCard } from '../components/SessionCard';
+import { SectionHeading } from '../components/SectionHeading';
 import { TabIcon } from '../components/TabIcon';
 
 // Quick pick-up page: this week's totals, the next sessions coaches have
@@ -39,7 +40,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <Text style={styles.label}>This week</Text>
+      <SectionHeading title="This week" first />
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <StatBox label="Metres" value={totals ? formatDistance(totals.metres) : message ? '–' : null} />
         <StatBox label="Time" value={totals ? formatTotalTime(totals.seconds) : message ? '–' : null} />
@@ -47,21 +48,18 @@ export default function HomeScreen() {
 
       {plans.length ? (
         <>
-          <Text style={[styles.label, { marginTop: 8 }]}>Planned by your coach</Text>
+          <SectionHeading title="Planned by your coach"
+            link={plans.length > PLANS_SHOWN ? { label: `All ${plans.length}`, href: '/training' } : null} />
           {plans.slice(0, PLANS_SHOWN).map((plan) => (
             <PlannedSessionCard key={plan.planned_session_id} plan={plan}
               onPress={() => router.push(`/session/new?planned=${plan.planned_session_id}`)}
               accessibilityHint="Opens the log form to record this session"
               action={<Text style={homeStyles.log}>Log ›</Text>} />
           ))}
-          {plans.length > PLANS_SHOWN ? (
-            <Link href="/training" style={styles.link}>See all {plans.length} planned sessions</Link>
-          ) : null}
         </>
       ) : null}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-        <Text style={styles.label}>Recent sessions</Text>
+      <SectionHeading title="Recent sessions" action={
         <Pressable
           onPress={() => router.push('/session/new')}
           accessibilityRole="button"
@@ -71,7 +69,7 @@ export default function HomeScreen() {
         >
           <TabIcon ios="plus" material="add" color="#fff" size={20} />
         </Pressable>
-      </View>
+      } />
 
       <Message text={message} />
       {sessions === null && !message ? <ActivityIndicator /> : null}
@@ -87,7 +85,7 @@ export default function HomeScreen() {
         <SessionCard key={session.completed_training_id} session={session} compact />
       ))}
 
-      {sessions?.length > 0 ? <Link href="/training" style={styles.link}>See all training</Link> : null}
+      {sessions?.length > 0 ? <Link href="/training" style={styles.link}>See all training ›</Link> : null}
     </Screen>
   );
 }

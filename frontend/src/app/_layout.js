@@ -52,6 +52,8 @@ function RootStack() {
             <Stack.Screen name="session/new" options={{ title: 'Log session', presentation: 'modal' }} />
             <Stack.Screen name="session/[id]" options={{ title: 'Edit session', presentation: 'modal' }} />
             <Stack.Screen name="join-squad" options={{ title: 'Join a squad', presentation: 'modal' }} />
+            {/* A squad the athlete is in (screens/AthleteSquadScreen.js); the title becomes its name */}
+            <Stack.Screen name="my-squad/[id]" options={{ title: 'Squad' }} />
           </Stack.Protected>
         </Stack.Protected>
 

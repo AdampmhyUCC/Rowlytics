@@ -93,7 +93,7 @@ export default function PlannedSessionFormScreen() {
       <DateChooser value={form.date} onChange={update('date')} error={errors.date} planning />
 
       <ChipGroup label="Type" options={MODALITIES} value={form.modality} onChange={update('modality')}
-        error={errors.modality} />
+        error={errors.modality} layout="segmented" />
 
       <Field label="Title" value={form.title} onChangeText={update('title')} error={errors.title}
         placeholder="e.g. 3 x 2k" maxLength={80} />

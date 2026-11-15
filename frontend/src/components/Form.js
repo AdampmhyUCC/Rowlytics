@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  AccessibilityInfo, ActivityIndicator, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -64,17 +64,108 @@ function useKeyboardHeight() {
   return height;
 }
 
-export function Field({ label, error, ...inputProps }) {
+// Label, optional hint (shown before any error, e.g. password rules) and
+// error around a form control. Screen readers hear the error as it appears.
+function FieldFrame({ label, hint, error, children }) {
   return (
     <View style={{ gap: 4 }}>
       <Text style={styles.label}>{label}</Text>
+      {hint ? <Text style={styles.subtle}>{hint}</Text> : null}
+      {children}
+      {error ? <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text> : null}
+    </View>
+  );
+}
+
+// React Native doesn't link the label Text to the input, so the input carries
+// the label and error itself. Pass ref to focus it (React 19 passes it through).
+export function Field({ label, hint, error, ...inputProps }) {
+  return (
+    <FieldFrame label={label} hint={hint} error={error}>
       <TextInput
         style={[styles.input, error && styles.inputError, inputProps.editable === false && styles.inputDisabled]}
         placeholderTextColor="#94a3b8"
+        accessibilityLabel={label}
+        accessibilityHint={error ?? hint}
         {...inputProps}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </FieldFrame>
+  );
+}
+
+// A new or existing password with a Show/Hide button, so people can check
+// what they typed (WCAG 3.3.8). Paste and password managers keep working.
+export function PasswordField({ label, hint, error, ...inputProps }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <FieldFrame label={label} hint={hint} error={error}>
+      <View style={[styles.input, styles.passwordRow, error && styles.inputError]}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholderTextColor="#94a3b8"
+          secureTextEntry={!shown}
+          autoCapitalize="none"
+          autoCorrect={false}
+          accessibilityLabel={label}
+          accessibilityHint={error ?? hint}
+          {...inputProps}
+        />
+        <Pressable
+          onPress={() => setShown((s) => !s)}
+          accessibilityRole="button"
+          accessibilityLabel={shown ? 'Hide password' : 'Show password'}
+          style={({ pressed }) => [styles.passwordToggle, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.passwordToggleText}>{shown ? 'Hide' : 'Show'}</Text>
+        </Pressable>
+      </View>
+    </FieldFrame>
+  );
+}
+
+// Date of birth as separate Day / Month / Year boxes (GOV.UK date input):
+// quicker than scrolling a calendar back years, and it works on web too.
+// value: { day, month, year } strings. Return moves through the boxes; the
+// year box's onSubmitEditing and onBlur come from the screen.
+const DOB_AUTOFILL = {
+  day: { textContentType: 'birthdateDay', autoComplete: Platform.select({ web: 'bday-day', default: 'birthdate-day' }) },
+  month: {
+    textContentType: 'birthdateMonth', autoComplete: Platform.select({ web: 'bday-month', default: 'birthdate-month' }),
+  },
+  year: { textContentType: 'birthdateYear', autoComplete: Platform.select({ web: 'bday-year', default: 'birthdate-year' }) },
+};
+
+export function DobField({ label = 'Date of birth', hint, error, value, onChange, onBlur, onSubmitEditing, ref }) {
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const part = (key, width, maxLength, props) => (
+    <View style={{ gap: 4, width }}>
+      <Text style={styles.subtle}>{key[0].toUpperCase() + key.slice(1)}</Text>
+      <TextInput
+        style={[styles.input, error && styles.inputError, { textAlign: 'center' }]}
+        value={value[key]}
+        onChangeText={(text) => onChange({ ...value, [key]: text.replace(/\D/g, '') })}
+        keyboardType="number-pad"
+        maxLength={maxLength}
+        accessibilityLabel={`${label}, ${key}`}
+        accessibilityHint={error ?? undefined}
+        {...DOB_AUTOFILL[key]}
+        {...props}
+      />
     </View>
+  );
+  return (
+    <FieldFrame label={label} hint={hint} error={error}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        {part('day', 64, 2, {
+          ref, returnKeyType: 'next', submitBehavior: 'submit', onSubmitEditing: () => monthRef.current?.focus(),
+        })}
+        {part('month', 64, 2, {
+          ref: monthRef, returnKeyType: 'next', submitBehavior: 'submit', onSubmitEditing: () => yearRef.current?.focus(),
+        })}
+        {part('year', 96, 4, { ref: yearRef, returnKeyType: 'next', submitBehavior: 'submit', onSubmitEditing, onBlur })}
+      </View>
+    </FieldFrame>
   );
 }
 
@@ -123,10 +214,16 @@ export function Checkbox({ label, checked, onChange, error }) {
   );
 }
 
-// Success or error banner under a form
+// Success or error banner under a form. Screen readers read it out when it
+// changes (Android through the live region, iOS through the announcement).
 export function Message({ text, kind = 'error' }) {
+  useEffect(() => {
+    if (text && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(text);
+  }, [text]);
   if (!text) return null;
-  return <Text style={kind === 'error' ? styles.error : styles.success}>{text}</Text>;
+  return (
+    <Text style={kind === 'error' ? styles.error : styles.success} accessibilityLiveRegion="polite">{text}</Text>
+  );
 }
 
 export const styles = StyleSheet.create({
@@ -147,6 +244,12 @@ export const styles = StyleSheet.create({
   buttonDanger: { borderColor: '#dc2626' },
   buttonTextDanger: { color: '#dc2626' },
   link: { color: '#0f4c81', fontWeight: '600', textAlign: 'center', padding: 6 },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 0, paddingRight: 4 },
+  passwordInput: { flex: 1, fontSize: 16, paddingVertical: 12, color: '#0f172a' },
+  passwordToggle: { minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  passwordToggleText: { color: '#0f4c81', fontWeight: '600' },
+  // Short notes inside a form, e.g. telling under-16s a parent must approve
+  info: { color: '#475569', backgroundColor: '#f1f5f9', padding: 12, borderRadius: 8 },
   // minHeight 44 keeps the whole row a comfortable touch target
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
   checkbox: {

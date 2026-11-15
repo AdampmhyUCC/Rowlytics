@@ -3,7 +3,7 @@ import { Text } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
-import { Button, Field, Message, Screen, styles } from '../components/Form';
+import { Button, Field, Message, PasswordField, Screen, styles } from '../components/Form';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -43,11 +43,10 @@ export default function Login() {
         keyboardType="email-address"
         textContentType="emailAddress"
       />
-      <Field
+      <PasswordField
         label="Password"
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
         autoComplete="current-password"
         textContentType="password"
         onSubmitEditing={logIn}

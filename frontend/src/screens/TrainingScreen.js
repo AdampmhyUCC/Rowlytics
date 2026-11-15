@@ -7,6 +7,7 @@ import { fetchSessions } from '../lib/training';
 import { fetchMyPlannedSessions } from '../lib/program';
 import { Button, Footer, Message, styles } from '../components/Form';
 import { PlannedSessionCard } from '../components/PlannedSessionCard';
+import { SectionHeading } from '../components/SectionHeading';
 import { SessionCard } from '../components/SessionCard';
 
 // The full training log, newest first, under the sessions coaches have
@@ -66,14 +67,14 @@ export default function TrainingScreen() {
 function PlannedList({ plans }) {
   return (
     <View style={{ gap: 10, marginBottom: 10 }}>
-      <Text style={styles.label}>Planned by your coach</Text>
+      <SectionHeading title="Planned by your coach" first />
       {plans.map((plan) => (
         <PlannedSessionCard key={plan.planned_session_id} plan={plan}
           onPress={() => router.push(`/session/new?planned=${plan.planned_session_id}`)}
           accessibilityHint="Opens the log form to record this session"
           action={<Text style={plannedStyles.log}>Log ›</Text>} />
       ))}
-      <Text style={[styles.label, { marginTop: 8 }]}>Your log</Text>
+      <SectionHeading title="Your log" />
     </View>
   );
 }

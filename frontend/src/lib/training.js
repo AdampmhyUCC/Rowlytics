@@ -148,3 +148,14 @@ export function formatSessionDate(dateString) {
   const text = `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
   return date.getFullYear() === new Date().getFullYear() ? text : `${text} ${date.getFullYear()}`;
 }
+
+// The week starting on Monday mondayString: "16–22 Nov", or "30 Nov – 6 Dec"
+// when it runs into the next month
+export function formatWeekRange(mondayString) {
+  const monday = parseDateString(mondayString);
+  const sunday = parseDateString(mondayString);
+  sunday.setDate(sunday.getDate() + 6);
+  return monday.getMonth() === sunday.getMonth()
+    ? `${monday.getDate()}–${sunday.getDate()} ${MONTHS[sunday.getMonth()]}`
+    : `${monday.getDate()} ${MONTHS[monday.getMonth()]} – ${sunday.getDate()} ${MONTHS[sunday.getMonth()]}`;
+}

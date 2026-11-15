@@ -143,7 +143,7 @@ export default function SessionFormScreen() {
       <DateChooser value={form.date} onChange={update('date')} error={errors.date} />
 
       <ChipGroup label="Type" options={MODALITIES} value={form.modality} onChange={update('modality')}
-        error={errors.modality} />
+        error={errors.modality} layout="segmented" />
 
       <Field label={form.modality === 'other' ? 'Distance (m), optional' : 'Distance (m)'}
         value={form.distance} onChangeText={update('distance')} error={errors.distance}

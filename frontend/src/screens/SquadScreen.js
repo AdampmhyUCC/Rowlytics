@@ -1,29 +1,32 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, Share, Text, View } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { logError } from '../lib/log';
 import { confirm } from '../lib/confirm';
-import { validateSquadName } from '../lib/validation';
+import { validateSquadDescription, validateSquadName } from '../lib/validation';
 import { formatSessionDate, localDateString } from '../lib/training';
 import {
-  deleteSquad, fetchSquad, fetchSquadMembers, formatAthleteCount, regenerateSquadCode, removeSquadMember,
-  renameSquad, squadInviteMessage,
+  deleteSquad, fetchSquad, fetchSquadMembers, formatAthleteCount, formatSquadCode, regenerateSquadCode,
+  removeSquadMember, squadInviteMessage, updateSquad,
 } from '../lib/squads';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 import { SquadProgram } from '../components/SquadProgram';
+import { backFallback } from '../components/AppHeader';
 
-// One of the coach's squads (/squad/<id>): rename or delete it, share or
-// change its invite code, plan its training program, and see or remove the
-// athletes in it
+// One of the coach's squads (/squad/<id>), in the order coaches use it: the
+// invite code to share, the athletes, the training program, then the rarely
+// used settings (name, description, delete) at the bottom, away from the share button
 export default function SquadScreen() {
   const { id } = useLocalSearchParams();
   // null until loaded, false if the squad wasn't found
   const [squad, setSquad] = useState(null);
   const [members, setMembers] = useState(null);
   const [name, setName] = useState('');
-  const [nameError, setNameError] = useState(null);
+  const [description, setDescription] = useState('');
+  // Errors for the name and description
+  const [errors, setErrors] = useState({});
   const [message, setMessage] = useState({ text: '', kind: 'error' });
-  // Which action is working: 'rename', 'delete', 'code' or an athlete_id being removed
+  // Which action is working: 'save', 'delete', 'code' or an athlete_id being removed
   const [busy, setBusy] = useState(null);
 
   const showError = (text) => setMessage({ text, kind: 'error' });
@@ -39,6 +42,7 @@ export default function SquadScreen() {
       if (error) return showError(`Could not load squad: ${error.message}`);
       setSquad(squadResult.data ?? false);
       setName(squadResult.data?.name ?? '');
+      setDescription(squadResult.data?.description ?? '');
       setMembers(membersResult.data);
     });
     return () => { current = false; };
@@ -49,17 +53,17 @@ export default function SquadScreen() {
     else router.replace('/squads');
   }
 
-  async function rename() {
-    const error = validateSquadName(name);
-    setNameError(error);
-    if (error) return;
-    setBusy('rename');
-    const { error: saveError } = await renameSquad(id, name);
+  async function saveDetails() {
+    const newErrors = { name: validateSquadName(name), description: validateSquadDescription(description) };
+    setErrors(newErrors);
+    if (newErrors.name || newErrors.description) return;
+    setBusy('save');
+    const { error: saveError } = await updateSquad(id, { name, description });
     setBusy(null);
-    logError('squad.rename', saveError);
-    if (saveError) return showError(`Could not rename squad: ${saveError.message}`);
-    setSquad((s) => ({ ...s, name: name.trim() }));
-    setMessage({ text: 'Name saved', kind: 'success' });
+    logError('squad.save', saveError);
+    if (saveError) return showError(`Could not save squad: ${saveError.message}`);
+    setSquad((s) => ({ ...s, name: name.trim(), description: description.trim() || null }));
+    setMessage({ text: 'Changes saved', kind: 'success' });
   }
 
   async function remove() {
@@ -118,57 +122,84 @@ export default function SquadScreen() {
     );
   }
 
+  const changed = name.trim() !== squad.name || description.trim() !== (squad.description ?? '');
+
   return (
     <Screen footer={<>
       <Message text={message.text} kind={message.kind} />
-      <Button title="Save name" onPress={rename} busy={busy === 'rename'} />
-      <Button title="Delete squad" variant="danger" onPress={remove} busy={busy === 'delete'} />
+      <Button title="Share invite code" onPress={share} />
+      {/* Only when there's a new name or description to save */}
+      {changed ? <Button title="Save changes" variant="secondary" onPress={saveDetails} busy={busy === 'save'} /> : null}
     </>}>
-      <Field label="Squad name" value={name} onChangeText={setName} error={nameError} maxLength={60} />
+      <Stack.Screen options={{ title: squad.name, ...backFallback('/squads', 'Squads') }} />
 
       <View style={squadStyles.codeCard}>
         <Text style={styles.label}>Invite code</Text>
         <Text style={squadStyles.code} selectable accessibilityLabel={squad.invite_code.split('').join(' ')}>
-          {squad.invite_code}
+          {formatSquadCode(squad.invite_code)}
         </Text>
-        <Text style={styles.subtle}>
-          Send this code to your athletes yourself, for example by text message. Athletes under 16 join through a parent.
+        <Text style={[styles.subtle, { textAlign: 'center' }]}>
+          Athletes join with this code. Under-16s join through a parent.
         </Text>
-        <Button title="Share code" variant="secondary" onPress={share} />
-        <Button title="Make a new code" variant="secondary" onPress={newCode} busy={busy === 'code'} />
+        <Pressable
+          onPress={newCode}
+          disabled={busy === 'code'}
+          accessibilityRole="button"
+          accessibilityHint="Makes a new code. The current one stops working."
+          style={({ pressed }) => [squadStyles.textButton, pressed && { opacity: 0.6 }]}
+        >
+          {busy === 'code'
+            ? <ActivityIndicator color="#475569" />
+            : <Text style={squadStyles.resetCode}>Reset code</Text>}
+        </Pressable>
       </View>
 
-      <SquadProgram squadId={id} />
-
-      <Text style={styles.label}>Athletes ({members.length})</Text>
+      <Text style={[styles.label, squadStyles.section]}>Athletes · {members.length}</Text>
       {members.length === 0
         ? <Text style={styles.subtle}>No one has joined yet. Athletes appear here once they join with the code.</Text>
         : members.map((member) => (
           <MemberRow key={member.athlete_id} member={member} busy={busy === member.athlete_id}
             onRemove={() => removeMember(member)} />
         ))}
+
+      <View style={squadStyles.section}>
+        <SquadProgram squadId={id} />
+      </View>
+
+      <View style={[squadStyles.section, { gap: 14 }]}>
+        <Text style={styles.label}>Squad settings</Text>
+        <Field label="Squad name" value={name} onChangeText={setName} error={errors.name} maxLength={60} />
+        <Field label="Description, optional" value={description} onChangeText={setDescription}
+          error={errors.description} hint="Your athletes see this on the squad's page."
+          placeholder="e.g. Training times, where you meet, what the squad is working towards" multiline maxLength={500}
+          style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }, errors.description && styles.inputError]} />
+        <Button title="Delete squad" variant="danger" onPress={remove} busy={busy === 'delete'} />
+      </View>
     </Screen>
   );
 }
 
-// Training is shown in a later issue (#34), and only for athletes who share it
+// The pill shows the athlete's own choice about sharing their training with
+// coaches (#30); coaches only ever see totals for those who share
 function MemberRow({ member, busy, onRemove }) {
   const joined = formatSessionDate(localDateString(new Date(member.joined_at)));
   return (
     <View style={squadStyles.memberRow}>
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, gap: 4 }}>
         <Text style={squadStyles.memberName}>{member.name}</Text>
-        <Text style={styles.subtle}>
-          Joined {joined} · {member.sharing ? 'Sharing training' : 'Not sharing training'}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Text style={styles.subtle}>Joined {joined}</Text>
+          <Text style={[squadStyles.pill, member.sharing ? squadStyles.pillSharing : squadStyles.pillNotSharing]}>
+            {member.sharing ? 'Sharing training' : 'Not sharing'}
+          </Text>
+        </View>
       </View>
       {busy ? <ActivityIndicator color="#dc2626" /> : (
         <Pressable
           onPress={onRemove}
           accessibilityRole="button"
           accessibilityLabel={`Remove ${member.name}`}
-          hitSlop={8}
-          style={({ pressed }) => pressed && { opacity: 0.6 }}
+          style={({ pressed }) => [squadStyles.textButton, pressed && { opacity: 0.6 }]}
         >
           <Text style={squadStyles.remove}>Remove</Text>
         </Pressable>
@@ -186,4 +217,11 @@ const squadStyles = {
   },
   memberName: { fontWeight: '600', fontSize: 16, color: '#0f172a' },
   remove: { color: '#dc2626', fontWeight: '600' },
+  // Text buttons keep a 44pt touch target (Apple HIG)
+  textButton: { minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  resetCode: { color: '#475569', fontWeight: '600' },
+  section: { marginTop: 12 },
+  pill: { fontSize: 12, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
+  pillSharing: { color: '#15803d', backgroundColor: '#dcfce7' },
+  pillNotSharing: { color: '#64748b', backgroundColor: '#f1f5f9' },
 };

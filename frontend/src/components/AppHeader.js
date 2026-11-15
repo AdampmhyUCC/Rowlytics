@@ -34,3 +34,27 @@ export function ProfileButton() {
     </Pressable>
   );
 }
+
+// For detail screens opened with nothing underneath them (after a reload, or a
+// link opened straight on web), where the header has no back arrow of its own.
+// Goes to the list the screen belongs to, e.g. backFallback('/my-squads', 'Squads').
+export function backFallback(href, label) {
+  if (router.canGoBack()) return {};
+  return {
+    headerLeft: () => (
+      <Pressable
+        onPress={() => router.replace(href)}
+        accessibilityRole="button"
+        accessibilityLabel={`Back to ${label}`}
+        hitSlop={8}
+        style={({ pressed }) => [
+          { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44, paddingRight: 12 },
+          pressed && { opacity: 0.5 },
+        ]}
+      >
+        <TabIcon ios="chevron.left" material="chevron_left" color={BRAND} size={20} />
+        <Text style={{ color: BRAND, fontSize: 17 }}>{label}</Text>
+      </Pressable>
+    ),
+  };
+}

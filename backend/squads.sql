@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS public.squads (
 
 CREATE INDEX IF NOT EXISTS squads_owner ON public.squads (owner_id, created_at);
 
+-- What the squad is for, written by the coach and shown to its athletes
+ALTER TABLE public.squads ADD COLUMN IF NOT EXISTS description VARCHAR(500);
+
 -- Athletes in each squad. Leaving or being removed deletes the row.
 CREATE TABLE IF NOT EXISTS public.squad_members (
   squad_id   UUID NOT NULL REFERENCES public.squads(squad_id) ON DELETE CASCADE,
@@ -83,11 +86,12 @@ CREATE POLICY "squads_delete_own" ON public.squads
   FOR DELETE TO authenticated
   USING (owner_id = (SELECT auth.uid()));
 
--- Column grants: the app only sends the name. Owner, kind and invite code are
--- set by the defaults above; codes change only through regenerate_squad_code.
+-- Column grants: the app only sends the name and description. Owner, kind and
+-- invite code are set by the defaults above; codes change only through
+-- regenerate_squad_code.
 REVOKE ALL ON public.squads FROM anon, authenticated;
 GRANT SELECT, DELETE ON public.squads TO authenticated;
-GRANT INSERT (name), UPDATE (name) ON public.squads TO authenticated;
+GRANT INSERT (name, description), UPDATE (name, description) ON public.squads TO authenticated;
 
 -- Owners see who is in their squads and can remove people (e.g. after a code
 -- leaks). Joining is through an RPC in #33, so there's no INSERT here.
@@ -318,3 +322,27 @@ GRANT EXECUTE ON FUNCTION public.join_squad(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.leave_squad(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_my_squads(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_my_children() TO authenticated;
+
+-- One squad the signed-in athlete is in, for its page in the app: name,
+-- description, coach and how many athletes it has (a count only, never the
+-- other athletes' names). Nothing for a squad the caller isn't in.
+CREATE OR REPLACE FUNCTION public.get_my_squad(p_squad_id UUID)
+RETURNS TABLE (squad_id UUID, name VARCHAR, description VARCHAR, coach_name VARCHAR, members INT, joined_at TIMESTAMPTZ)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT s.squad_id, s.name, s.description, c.name,
+    (SELECT count(*) FROM public.squad_members x WHERE x.squad_id = s.squad_id)::INT,
+    m.joined_at
+  FROM public.squad_members m
+  JOIN public.athletes a ON a.athlete_id = m.athlete_id
+  JOIN public.squads s ON s.squad_id = m.squad_id
+  JOIN public.profiles c ON c.id = s.owner_id
+  WHERE m.squad_id = p_squad_id
+    AND a.profile_id = (SELECT auth.uid());
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.get_my_squad(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_my_squad(UUID) TO authenticated;
