@@ -14,10 +14,13 @@ export default function RootLayout() {
 
 function RootStack() {
   const { session, loading, role, consentPending, privacyNoticeDue } = useAuth();
+  // The signed-in user's account (role, consent) has been checked
+  const accountReady = consentPending !== null;
 
-  // Wait for the stored session so logged-in users don't flash the login screen,
-  // and for the consent check so pending athletes don't flash the app
-  if (loading || (session && consentPending === null)) {
+  // Wait for the stored session so logged-in users don't flash the login screen.
+  // After that the Stack stays mounted: unmounting it while a guard flips (e.g.
+  // on log in) leaves Expo Router's route removal with no navigator to handle it.
+  if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator size="large" />
@@ -37,7 +40,9 @@ function RootStack() {
         <Stack.Screen name="forgot-password" options={{ title: 'Forgot password' }} />
       </Stack.Protected>
 
-      <Stack.Protected guard={!!session && !consentPending}>
+      {/* Locked until the account check finishes, so pending athletes don't
+          flash the app; index shows a spinner meanwhile */}
+      <Stack.Protected guard={!!session && accountReady && !consentPending}>
         {/* Athlete screens. A null role (account check failed offline) falls
             back to these, as before coaches existed */}
         <Stack.Protected guard={role !== 'coach'}>

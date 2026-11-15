@@ -76,8 +76,9 @@ async function fetchAccount(userId) {
     .from('profiles')
     .select('role, dob')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!profile) throw Object.assign(new Error('No profile for this account'), { code: 'no_profile' });
   if (profile.role !== 'athlete') return { role: profile.role, consentPending: false, privacyNoticeDue: false };
   const { data: active, error: rpcError } = await supabase.rpc('is_active_athlete');
   if (rpcError) throw rpcError;
@@ -117,8 +118,18 @@ export function AuthProvider({ children }) {
       setAccount(newAccount);
       return newAccount.consentPending;
     } catch (error) {
-      // Don't lock the user out over a network error; the database still enforces consent
       logError('auth.checkConsent', error);
+      // A deleted account's sign-in stays valid for up to an hour, but it has
+      // no profile. If the server confirms the account is gone, log out.
+      if (error.code === 'no_profile') {
+        const { error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          logError('auth.deletedAccount', userError);
+          await supabase.auth.signOut({ scope: 'local' });
+          return null;
+        }
+      }
+      // Don't lock the user out over a network error; the database still enforces consent
       setAccount((current) => current ?? { role: null, consentPending: false, privacyNoticeDue: false });
       return null;
     }
