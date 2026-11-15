@@ -2,7 +2,8 @@ import { Pressable, Text, View } from 'react-native';
 import { formatSessionDate, modalityLabel } from '../lib/training';
 
 // One planned session from a squad's program (#34): date · type, the title,
-// then the coach's details. Coaches tap it to edit; `action` sits on the right.
+// then the coach's details, and the squad name when given (athletes can be in
+// several squads). Coaches tap it to edit; `action` sits on the right.
 export function PlannedSessionCard({ plan, onPress, accessibilityHint, action }) {
   const heading = `${formatSessionDate(plan.session_date)} · ${modalityLabel(plan.modality)}`;
   const content = (
@@ -10,6 +11,7 @@ export function PlannedSessionCard({ plan, onPress, accessibilityHint, action })
       <Text style={cardStyles.date}>{heading}</Text>
       <Text style={cardStyles.title}>{plan.title}</Text>
       {plan.details ? <Text style={cardStyles.details}>{plan.details}</Text> : null}
+      {plan.squadName ? <Text style={cardStyles.squad}>{plan.squadName}</Text> : null}
     </View>
   );
 
@@ -19,7 +21,7 @@ export function PlannedSessionCard({ plan, onPress, accessibilityHint, action })
         <Pressable
           onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel={`${heading}, ${plan.title}${plan.details ? `, ${plan.details}` : ''}`}
+          accessibilityLabel={[heading, plan.title, plan.details, plan.squadName].filter(Boolean).join(', ')}
           accessibilityHint={accessibilityHint}
           style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.7 }]}
         >
@@ -39,4 +41,5 @@ const cardStyles = {
   date: { color: '#475569', fontWeight: '600' },
   title: { fontWeight: '600', fontSize: 16, color: '#0f172a' },
   details: { color: '#475569' },
+  squad: { color: '#64748b', fontSize: 13 },
 };

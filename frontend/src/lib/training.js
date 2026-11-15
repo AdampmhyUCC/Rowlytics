@@ -26,7 +26,10 @@ export const RPE_LABELS = {
   10: 'Maximal',
 };
 
-const SESSION_COLUMNS = 'completed_training_id, session_date, modality, distance_m, duration_seconds, rpe, notes';
+// planned_sessions(title): the squad session this one completes (#34), null
+// for the athlete's own sessions or once they've left the squad
+const SESSION_COLUMNS = 'completed_training_id, session_date, modality, distance_m, duration_seconds, rpe, notes, '
+  + 'planned_session_id, planned_sessions(title)';
 
 // RLS only returns the signed-in athlete's own sessions. Newest first; sessions
 // on the same day are ordered by when they were logged.
