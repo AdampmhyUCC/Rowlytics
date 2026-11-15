@@ -2,8 +2,11 @@
 -- WARNING: the DROP lines delete all data. Never run on the pilot database.
 -- Run in the Supabase SQL Editor to rebuild the tables.
 -- User accounts and roles live in profiles.sql (not dropped by this file).
--- After this file, run profiles.sql, consent.sql, then training.sql.
+-- After this file, run profiles.sql, consent.sql, training.sql, privacy.sql, then squads.sql.
 
+-- Tables from later files that point at athletes
+DROP TABLE IF EXISTS squad_members;
+DROP TABLE IF EXISTS data_sharing_choices;
 DROP TABLE IF EXISTS parental_consents;
 DROP TABLE IF EXISTS completed_training;
 DROP TABLE IF EXISTS athletes;

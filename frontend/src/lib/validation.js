@@ -27,6 +27,14 @@ export function validateDob(dob, minAge = 0) {
   return null;
 }
 
+// Matches the squads.name column (squads.sql)
+export function validateSquadName(name) {
+  const trimmed = name.trim();
+  if (!trimmed) return 'Enter a name for the squad';
+  if (trimmed.length > 60) return 'Squad name must be 60 characters or fewer';
+  return null;
+}
+
 export function validateEmail(email) {
   if (!/^\S+@\S+\.\S+$/.test(email.trim())) return 'Enter a valid email address';
   return null;

@@ -57,6 +57,8 @@ function RootStack() {
         {/* Coach screens; coaches have no training log or privacy notice */}
         <Stack.Protected guard={role === 'coach'}>
           <Stack.Screen name="(coach)" options={{ headerShown: false, title: 'Squads' }} />
+          <Stack.Screen name="squad/new" options={{ title: 'New squad', presentation: 'modal' }} />
+          <Stack.Screen name="squad/[id]" options={{ title: 'Squad' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!privacyNoticeDue}>
