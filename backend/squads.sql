@@ -1,7 +1,7 @@
 -- Training squads (issue #32). Safe to re-run. Run after privacy.sql.
 --
 -- A coach creates squads and shares each squad's invite code with athletes
--- themselves (e.g. by text message). Athletes join with the code in #33.
+-- themselves (e.g. by text message). Athletes join with the code (bottom of file, #33).
 -- Being a coach shows no athlete data on its own: a coach only sees athletes
 -- in their own squads, and only their names here. Training is shown later
 -- (#34) and only for athletes with coach_sharing_at set.
@@ -158,3 +158,163 @@ REVOKE EXECUTE ON FUNCTION public.get_squad_members(UUID) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.regenerate_squad_code(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_squad_members(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.regenerate_squad_code(UUID) TO authenticated;
+
+-- Joining and leaving squads (issue #33)
+--
+-- Athletes 16 and over join with a squad's invite code themselves. Under-16s
+-- can't: the parent who gave consent joins for them from the parent page.
+-- Athletes can leave whenever they like, and a parent can take their under-16
+-- child out. Athletes can't read squads (RLS above is owner-only), so these
+-- functions look the code up themselves and return only names.
+
+-- True while the caller is the parent who consented for this athlete and the
+-- athlete is still under 16. From 16 the athlete manages their own squads.
+CREATE OR REPLACE FUNCTION public.is_parent_of_under_16(p_athlete_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.parental_consents c
+    JOIN public.athletes a ON a.athlete_id = c.athlete_id
+    JOIN public.profiles p ON p.id = a.profile_id
+    WHERE c.athlete_id = p_athlete_id
+      AND c.parent_id = (SELECT auth.uid())
+      AND c.approved_at IS NOT NULL
+      AND p.dob > CURRENT_DATE - INTERVAL '16 years'
+  );
+$$;
+
+-- Joins a squad with its invite code, for the caller (p_athlete_id null) or
+-- for the caller's under-16 child. Spaces, dashes and lower case in the code
+-- are ignored. Returns the squad and coach names so the app can show who the
+-- athlete has joined; joining twice does nothing.
+CREATE OR REPLACE FUNCTION public.join_squad(p_code TEXT, p_athlete_id UUID DEFAULT NULL)
+RETURNS TABLE (squad_name VARCHAR, coach_name VARCHAR, already_member BOOLEAN)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_athlete_id UUID;
+  v_under_16 BOOLEAN;
+  v_code TEXT := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g'));
+  v_squad public.squads;
+BEGIN
+  IF p_athlete_id IS NULL THEN
+    SELECT a.athlete_id, p.dob > CURRENT_DATE - INTERVAL '16 years'
+    INTO v_athlete_id, v_under_16
+    FROM public.athletes a
+    JOIN public.profiles p ON p.id = a.profile_id
+    WHERE a.profile_id = (SELECT auth.uid());
+    IF NOT FOUND OR NOT public.is_active_athlete() THEN
+      RAISE EXCEPTION 'Only athletes using the app can join a squad';
+    END IF;
+    IF v_under_16 THEN
+      RAISE EXCEPTION 'Athletes under 16 join squads through a parent. Send the code to your parent.';
+    END IF;
+  ELSIF public.is_parent_of_under_16(p_athlete_id) THEN
+    v_athlete_id := p_athlete_id;
+  ELSE
+    RAISE EXCEPTION 'You can only join squads for your own child while they are under 16';
+  END IF;
+
+  -- Codes are exactly 8 characters; checking first stops the cast to CHAR(8)
+  -- cutting a longer code down to one that matches
+  IF length(v_code) = 8 THEN
+    SELECT * INTO v_squad FROM public.squads s
+    WHERE s.invite_code = v_code::CHAR(8) AND s.kind = 'coach';
+  END IF;
+  IF v_squad.squad_id IS NULL THEN
+    RAISE EXCEPTION 'No squad has that code. Check it with your coach.';
+  END IF;
+
+  INSERT INTO public.squad_members (squad_id, athlete_id)
+  VALUES (v_squad.squad_id, v_athlete_id)
+  ON CONFLICT DO NOTHING;
+  already_member := NOT FOUND;
+  squad_name := v_squad.name;
+  SELECT p.name INTO coach_name FROM public.profiles p WHERE p.id = v_squad.owner_id;
+  RETURN NEXT;
+END;
+$$;
+
+-- Leaves a squad, for the caller or their under-16 child. Leaving a squad
+-- you're not in does nothing.
+CREATE OR REPLACE FUNCTION public.leave_squad(p_squad_id UUID, p_athlete_id UUID DEFAULT NULL)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_athlete_id UUID;
+BEGIN
+  IF p_athlete_id IS NULL THEN
+    SELECT athlete_id INTO v_athlete_id FROM public.athletes WHERE profile_id = (SELECT auth.uid());
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Only athletes can leave a squad';
+    END IF;
+  ELSIF public.is_parent_of_under_16(p_athlete_id) THEN
+    v_athlete_id := p_athlete_id;
+  ELSE
+    RAISE EXCEPTION 'You can only manage squads for your own child while they are under 16';
+  END IF;
+
+  DELETE FROM public.squad_members
+  WHERE squad_id = p_squad_id AND athlete_id = v_athlete_id;
+END;
+$$;
+
+-- The squads the caller (or their under-16 child) is in: squad and coach
+-- names only, never the invite code or other members
+CREATE OR REPLACE FUNCTION public.get_my_squads(p_athlete_id UUID DEFAULT NULL)
+RETURNS TABLE (squad_id UUID, name VARCHAR, coach_name VARCHAR, joined_at TIMESTAMPTZ)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT s.squad_id, s.name, c.name, m.joined_at
+  FROM public.squad_members m
+  JOIN public.squads s ON s.squad_id = m.squad_id
+  JOIN public.profiles c ON c.id = s.owner_id
+  WHERE m.athlete_id = CASE
+    WHEN p_athlete_id IS NULL
+      THEN (SELECT a.athlete_id FROM public.athletes a WHERE a.profile_id = (SELECT auth.uid()))
+    WHEN public.is_parent_of_under_16(p_athlete_id) THEN p_athlete_id
+  END
+  ORDER BY m.joined_at;
+$$;
+
+-- For the parent page: the under-16 children the signed-in parent gave
+-- consent for, so they can join squads for them
+CREATE OR REPLACE FUNCTION public.get_my_children()
+RETURNS TABLE (athlete_id UUID, name VARCHAR)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT DISTINCT a.athlete_id, p.name
+  FROM public.parental_consents c
+  JOIN public.athletes a ON a.athlete_id = c.athlete_id
+  JOIN public.profiles p ON p.id = a.profile_id
+  WHERE c.parent_id = (SELECT auth.uid())
+    AND c.approved_at IS NOT NULL
+    AND p.dob > CURRENT_DATE - INTERVAL '16 years'
+  ORDER BY p.name;
+$$;
+
+-- is_parent_of_under_16 is only used inside the functions above
+REVOKE EXECUTE ON FUNCTION public.is_parent_of_under_16(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.join_squad(TEXT, UUID) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.leave_squad(UUID, UUID) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.get_my_squads(UUID) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.get_my_children() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.join_squad(TEXT, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.leave_squad(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_squads(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_children() TO authenticated;

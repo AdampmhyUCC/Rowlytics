@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
 import { logError } from './log';
 import { PRIVACY_NOTICE_VERSION } from './privacyNotice';
+import { isUnderAge } from './validation';
 
 // Only refresh tokens while the app is in the foreground (Supabase's React Native advice)
 AppState.addEventListener('change', (state) => {
@@ -31,6 +32,7 @@ const AuthContext = createContext({
   role: null,
   consentPending: null,
   privacyNoticeDue: false,
+  under16: false,
   refreshConsent: async () => null,
 });
 
@@ -65,14 +67,14 @@ async function createSessionFromUrl(url) {
   }
 }
 
-// The user's role, whether they're an athlete under 16 still waiting for a
-// parent, and whether they still need to answer the current privacy notice.
+// The user's role, whether they're an athlete under 16 (and if so still
+// waiting for a parent), and whether they still need to answer the current privacy notice.
 // The database decides, and also blocks pending athletes itself; this only
 // picks which screens to show.
 async function fetchAccount(userId) {
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, dob')
     .eq('id', userId)
     .single();
   if (error) throw error;
@@ -90,6 +92,8 @@ async function fetchAccount(userId) {
     role: profile.role,
     consentPending: false,
     privacyNoticeDue: (athlete.privacy_notice_version ?? 0) < PRIVACY_NOTICE_VERSION,
+    // Under-16s join squads through a parent (#33)
+    under16: isUnderAge(profile.dob, 16),
   };
 }
 
@@ -174,6 +178,7 @@ export function AuthProvider({ children }) {
       role: account?.role ?? null,
       consentPending: account?.consentPending ?? null,
       privacyNoticeDue: account?.privacyNoticeDue ?? false,
+      under16: account?.under16 ?? false,
       refreshConsent,
     }}>
       {children}

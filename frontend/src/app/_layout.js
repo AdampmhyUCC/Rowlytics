@@ -51,6 +51,7 @@ function RootStack() {
             {/* One form for logging and editing a session (screens/SessionFormScreen.js) */}
             <Stack.Screen name="session/new" options={{ title: 'Log session', presentation: 'modal' }} />
             <Stack.Screen name="session/[id]" options={{ title: 'Edit session', presentation: 'modal' }} />
+            <Stack.Screen name="join-squad" options={{ title: 'Join a squad', presentation: 'modal' }} />
           </Stack.Protected>
         </Stack.Protected>
 

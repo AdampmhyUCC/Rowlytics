@@ -3,15 +3,19 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
 import { useAuth } from '../lib/auth';
-import { validateName } from '../lib/validation';
+import { validateEmail, validateName } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
+import { ChildSquads } from '../components/ChildSquads';
 
 // Web page a parent opens from the consent email. The magic link signs them in
 // (see AuthProvider), which proves they own the email the athlete gave.
+// Parents also come back here to join squads for their under-16 children (#33).
 export default function ParentConsent() {
   const { session, linkError } = useAuth();
   const userId = session?.user.id;
   const [requests, setRequests] = useState(null);
+  // Under-16 children whose consent this parent gave
+  const [children, setChildren] = useState(null);
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState(null);
   const [message, setMessage] = useState({ text: '', kind: 'error' });
@@ -26,7 +30,18 @@ export default function ParentConsent() {
     setRequests(data);
   }
 
-  useEffect(() => { if (userId) loadRequests(); }, [userId]);
+  async function loadChildren() {
+    const { data, error } = await supabase.rpc('get_my_children');
+    logError('parentConsent.children', error);
+    if (error) return setMessage({ text: `Could not load your children's squads: ${error.message}`, kind: 'error' });
+    setChildren(data);
+  }
+
+  useEffect(() => {
+    if (!userId) return;
+    loadRequests();
+    loadChildren();
+  }, [userId]);
 
   async function approve(request) {
     const error = validateName(name);
@@ -45,6 +60,7 @@ export default function ParentConsent() {
     if (rpcError) return setMessage({ text: rpcError.message, kind: 'error' });
     setMessage({ text: `Thank you. ${request.athlete_name} can now use Rowlytics.`, kind: 'success' });
     loadRequests();
+    loadChildren();
   }
 
   async function logOut() {
@@ -61,13 +77,13 @@ export default function ParentConsent() {
           <>
             <Message text={linkError} />
             <Text style={styles.subtle}>
-              Links can only be used once and expire after a while. Ask the athlete to tap
-              "Send again" in the Rowlytics app to get a new one.
+              Links can only be used once and expire after a while. You can get a new one below.
             </Text>
           </>
         ) : (
           <Text style={styles.subtle}>Open this page from the link in your email.</Text>
         )}
+        <SignInLink />
       </Page>
     );
   }
@@ -108,9 +124,61 @@ export default function ParentConsent() {
 
       <Message text={message.text} kind={message.kind} />
 
+      {children?.length > 0 ? (
+        <>
+          <Text style={[styles.heading, { marginTop: 10 }]}>Squads</Text>
+          <Text style={styles.subtle}>
+            Athletes under 16 can't join a coach's squad themselves. You join for them with the
+            code the coach sends.
+          </Text>
+          {children.map((child) => <ChildSquads key={child.athlete_id} child={child} />)}
+        </>
+      ) : null}
+
       <View style={{ flex: 1 }} />
       <Button title="Log out" variant="secondary" onPress={logOut} />
     </Page>
+  );
+}
+
+// For parents coming back later (e.g. to join a squad). Only emails existing
+// accounts, and says the same either way so it doesn't reveal who has one.
+function SignInLink() {
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState(null);
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    const error = validateEmail(email);
+    setEmailError(error);
+    if (error) return;
+
+    setBusy(true);
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${process.env.EXPO_PUBLIC_WEB_URL}/parent-consent`,
+      },
+    });
+    setBusy(false);
+    // Unknown emails fail here too; don't show that
+    logError('parentConsent.signInLink', otpError);
+    setSent(true);
+  }
+
+  return (
+    <>
+      <Text style={styles.subtle}>
+        Already approved an athlete? Enter your email and we'll send you a new sign-in link.
+      </Text>
+      <Field label="Your email" value={email} onChangeText={setEmail} error={emailError}
+        placeholder="parent@example.com" autoCapitalize="none" autoComplete="email"
+        keyboardType="email-address" textContentType="emailAddress" />
+      <Message text={sent ? `If ${email.trim()} has a parent account, we've emailed it a link.` : ''} kind="success" />
+      <Button title="Email me a sign-in link" onPress={send} busy={busy} />
+    </>
   );
 }
 
