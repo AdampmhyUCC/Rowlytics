@@ -18,12 +18,23 @@ export function validateDob(dob, minAge = 0) {
   }
   if (date > new Date()) return 'Date of birth cannot be in the future';
   if (date.getUTCFullYear() < 1900) return 'Check the year of birth';
-  if (minAge) {
-    // Dates as YYYY-MM-DD strings compare in date order
-    const today = new Date();
-    const cutoff = `${today.getFullYear() - minAge}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    if (dob > cutoff) return `Coaches must be ${minAge} or over`;
-  }
+  if (minAge && isUnderAge(dob, minAge)) return `Coaches must be ${minAge} or over`;
+  return null;
+}
+
+// True if someone born on dob (YYYY-MM-DD) is younger than age today
+export function isUnderAge(dob, age) {
+  // Dates as YYYY-MM-DD strings compare in date order
+  const today = new Date();
+  const cutoff = `${today.getFullYear() - age}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return dob > cutoff;
+}
+
+// Invite codes are 8 characters; spaces and dashes are ignored (join_squad in squads.sql)
+export function validateSquadCode(code) {
+  const cleaned = code.replace(/[^A-Za-z0-9]/g, '');
+  if (!cleaned) return 'Enter the squad code';
+  if (cleaned.length !== 8) return 'Squad codes are 8 characters';
   return null;
 }
 

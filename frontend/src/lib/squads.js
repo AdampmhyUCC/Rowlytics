@@ -57,3 +57,25 @@ export function squadInviteMessage(squad) {
   return `Join my squad "${squad.name}" on Rowlytics with the code ${squad.invite_code}. `
     + 'If you are under 16, ask a parent to join for you.';
 }
+
+// Athletes' side (#33). Athletes can't read squads, so these go through the
+// RPCs in squads.sql. athleteId is only passed by a parent acting for their
+// under-16 child; leave it out for the signed-in athlete.
+function forAthlete(athleteId) {
+  return athleteId ? { p_athlete_id: athleteId } : {};
+}
+
+// Squad name, coach name and joined_at for each squad the athlete is in
+export async function fetchJoinedSquads(athleteId) {
+  return supabase.rpc('get_my_squads', forAthlete(athleteId));
+}
+
+// Returns { squad_name, coach_name, already_member }
+export async function joinSquad(code, athleteId) {
+  const { data, error } = await supabase.rpc('join_squad', { p_code: code, ...forAthlete(athleteId) });
+  return { data: data?.[0], error };
+}
+
+export async function leaveSquad(squadId, athleteId) {
+  return supabase.rpc('leave_squad', { p_squad_id: squadId, ...forAthlete(athleteId) });
+}

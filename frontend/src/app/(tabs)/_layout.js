@@ -33,6 +33,14 @@ export default function TabsLayout() {
             tabBarIcon: ({ color }) => <TabIcon ios="figure.rower" material="rowing" color={color} />,
           }}
         />
+        {/* Not "squads": that URL is the coach tab */}
+        <Tabs.Screen
+          name="my-squads"
+          options={{
+            title: 'Squads',
+            tabBarIcon: ({ color }) => <TabIcon ios="person.3.fill" material="groups" color={color} />,
+          }}
+        />
       </Tabs>
     </RefreshContext.Provider>
   );
