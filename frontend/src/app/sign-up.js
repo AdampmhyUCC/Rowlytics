@@ -5,12 +5,24 @@ import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
 import { rememberAccountUsed } from '../lib/auth';
 import { validateDob, validateEmail, validateName, validatePassword } from '../lib/validation';
-import { Button, Field, Message, Screen, styles } from '../components/Form';
+import { Button, Checkbox, Field, Message, Screen, styles } from '../components/Form';
+import { ChipGroup } from '../components/ChipGroup';
 
 const EMAIL_REDIRECT = `${process.env.EXPO_PUBLIC_WEB_URL}/open-app.html`;
 
+const ROLE_OPTIONS = [
+  { value: 'athlete', label: 'Athlete' },
+  { value: 'coach', label: 'Coach' },
+];
+
+const SAFEGUARDING_STATEMENT =
+  "I coach with a club or organisation and will follow its safeguarding and child protection policies, "
+  + "including for athletes under 18.";
+
 export default function SignUp() {
-  const [form, setForm] = useState({ name: '', dob: '', email: '', password: '' });
+  const [form, setForm] = useState({
+    role: 'athlete', name: '', dob: '', email: '', password: '', safeguardingAgreed: false,
+  });
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState({ text: '', kind: 'error' });
   const [busy, setBusy] = useState(false);
@@ -19,24 +31,30 @@ export default function SignUp() {
 
   const update = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
 
+  const coach = form.role === 'coach';
+
   async function signUp() {
     const newErrors = {
       name: validateName(form.name),
-      dob: validateDob(form.dob),
+      dob: validateDob(form.dob, coach ? 18 : 0),
       email: validateEmail(form.email),
       password: validatePassword(form.password),
+      safeguarding: coach && !form.safeguardingAgreed ? 'Tick to agree before signing up as a coach' : null,
     };
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) return;
 
     setBusy(true);
     setMessage({ text: '' });
-    // name and dob go in user metadata; a database trigger copies them into profiles
+    // These go in user metadata; a database trigger copies them into profiles.
+    // The trigger also re-checks the coach rules (18+, safeguarding agreed).
     const { data, error } = await supabase.auth.signUp({
       email: form.email.trim(),
       password: form.password,
       options: {
-        data: { name: form.name.trim(), dob: form.dob },
+        data: coach
+          ? { role: 'coach', name: form.name.trim(), dob: form.dob, safeguarding_agreed: form.safeguardingAgreed }
+          : { name: form.name.trim(), dob: form.dob },
         // The link confirms the email, then a web page sends them back to the app
         emailRedirectTo: EMAIL_REDIRECT,
       },
@@ -60,6 +78,8 @@ export default function SignUp() {
     </>}>
       <Text style={styles.heading}>Create your profile</Text>
 
+      <ChipGroup label="I'm signing up as" options={ROLE_OPTIONS} value={form.role} onChange={update('role')} />
+
       <Field label="Full name" value={form.name} onChangeText={update('name')} error={errors.name}
         autoComplete="name" textContentType="name" />
       <Field label="Date of birth" value={form.dob} onChangeText={update('dob')} error={errors.dob}
@@ -69,6 +89,11 @@ export default function SignUp() {
         keyboardType="email-address" textContentType="emailAddress" />
       <Field label="Password" value={form.password} onChangeText={update('password')} error={errors.password}
         secureTextEntry autoComplete="new-password" textContentType="newPassword" />
+
+      {coach ? (
+        <Checkbox label={SAFEGUARDING_STATEMENT} checked={form.safeguardingAgreed}
+          onChange={update('safeguardingAgreed')} error={errors.safeguarding} />
+      ) : null}
 
       <Link href="/login" style={styles.link}>Already have an account? Log in</Link>
     </Screen>

@@ -103,6 +103,26 @@ export function Button({ title, onPress, busy, variant = 'primary' }) {
   );
 }
 
+// A tick box with its label, e.g. agreeing to a statement
+export function Checkbox({ label, checked, onChange, error }) {
+  return (
+    <View style={{ gap: 4 }}>
+      <Pressable
+        onPress={() => onChange(!checked)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked }}
+        style={({ pressed }) => [styles.checkboxRow, pressed && { opacity: 0.7 }]}
+      >
+        <View style={[styles.checkbox, checked && styles.checkboxChecked, error && styles.inputError]}>
+          {checked ? <Text style={styles.checkboxTick}>✓</Text> : null}
+        </View>
+        <Text style={{ flex: 1, color: '#0f172a' }}>{label}</Text>
+      </Pressable>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
 // Success or error banner under a form
 export function Message({ text, kind = 'error' }) {
   if (!text) return null;
@@ -127,4 +147,12 @@ export const styles = StyleSheet.create({
   buttonDanger: { borderColor: '#dc2626' },
   buttonTextDanger: { color: '#dc2626' },
   link: { color: '#0f4c81', fontWeight: '600', textAlign: 'center', padding: 6 },
+  // minHeight 44 keeps the whole row a comfortable touch target
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  checkbox: {
+    width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: '#0f4c81', borderColor: '#0f4c81' },
+  checkboxTick: { color: '#fff', fontWeight: 'bold' },
 });
