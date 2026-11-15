@@ -22,6 +22,30 @@ export function validateDob(dob, minAge = 0) {
   return null;
 }
 
+// Day / Month / Year boxes (DobField) -> "YYYY-MM-DD", the format the
+// database expects. Only meaningful once validateDobParts passes.
+export function dobFromParts({ day, month, year }) {
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+// The sign-up date of birth, with GOV.UK-style messages. minAge is only used
+// for coaches (18), matching check_coach_age in profiles.sql.
+export function validateDobParts(parts, minAge = 0) {
+  const { day, month, year } = parts;
+  if (!day && !month && !year) return 'Enter your date of birth';
+  if (!day) return 'Date of birth must include a day';
+  if (!month) return 'Date of birth must include a month';
+  if (!year) return 'Date of birth must include a year';
+  if (year.length !== 4) return 'Enter the year as 4 numbers, for example 2010';
+  const dob = dobFromParts(parts);
+  const date = new Date(`${dob}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dob) return 'Date of birth must be a real date';
+  if (date > new Date()) return 'Date of birth must be in the past';
+  if (Number(year) < 1900) return 'Check the year of birth';
+  if (minAge && isUnderAge(dob, minAge)) return `You must be ${minAge} or over to sign up as a coach`;
+  return null;
+}
+
 // True if someone born on dob (YYYY-MM-DD) is younger than age today
 export function isUnderAge(dob, age) {
   // Dates as YYYY-MM-DD strings compare in date order
@@ -35,6 +59,12 @@ export function validateSquadCode(code) {
   const cleaned = code.replace(/[^A-Za-z0-9]/g, '');
   if (!cleaned) return 'Enter the squad code';
   if (cleaned.length !== 8) return 'Squad codes are 8 characters';
+  return null;
+}
+
+// Matches the squads.description column (squads.sql); it's optional
+export function validateSquadDescription(description) {
+  if (description.length > 500) return 'Description must be 500 characters or fewer';
   return null;
 }
 

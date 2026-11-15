@@ -19,6 +19,14 @@ export default function CoachTabsLayout() {
           tabBarInactiveTintColor: '#64748b',
         }}
       >
+        {/* Not "home": that URL is the athlete tab */}
+        <Tabs.Screen
+          name="coach-home"
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ color }) => <TabIcon ios="house.fill" material="home" color={color} />,
+          }}
+        />
         <Tabs.Screen
           name="squads"
           options={{

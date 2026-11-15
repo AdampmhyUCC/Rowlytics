@@ -3,8 +3,9 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } fr
 import { router, useFocusEffect } from 'expo-router';
 import { logError } from '../lib/log';
 import { useRefreshKey } from '../lib/refresh';
-import { fetchMySquads, formatAthleteCount } from '../lib/squads';
+import { fetchMySquads, formatAthleteCount, formatSquadCode } from '../lib/squads';
 import { Button, Footer, Message, styles } from '../components/Form';
+import { TabIcon } from '../components/TabIcon';
 
 // Coach home: the coach's squads, each with its invite code
 export default function SquadsScreen() {
@@ -53,9 +54,9 @@ export default function SquadsScreen() {
 function EmptySquads() {
   return (
     <View style={{ gap: 10 }}>
+      <Text style={[styles.label, { fontSize: 18 }]}>No squads yet</Text>
       <Text style={styles.subtle}>
-        No squads yet. Each squad gets a code that you share with your athletes yourself, for
-        example by text message. Athletes under 16 join through a parent.
+        Create a squad to get an invite code for your athletes. Under-16s join through a parent.
       </Text>
       <Text style={styles.subtle}>
         You'll only see an athlete's training once they've joined one of your squads and chosen to
@@ -75,17 +76,19 @@ function SquadCard({ squad }) {
       accessibilityHint="Opens the squad to manage it and see its athletes"
       style={({ pressed }) => [cardStyles.card, pressed && { opacity: 0.7 }]}
     >
-      <Text style={cardStyles.title}>{squad.name}</Text>
-      <Text style={cardStyles.details}>
-        {formatAthleteCount(squad.memberCount)} · Code <Text style={cardStyles.code}>{squad.invite_code}</Text>
-      </Text>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={cardStyles.title}>{squad.name}</Text>
+        <Text style={cardStyles.details}>
+          {formatAthleteCount(squad.memberCount)} · Code {formatSquadCode(squad.invite_code)}
+        </Text>
+      </View>
+      <TabIcon ios="chevron.right" material="chevron_right" color="#94a3b8" size={16} />
     </Pressable>
   );
 }
 
 const cardStyles = {
-  card: { gap: 2, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
   title: { fontWeight: '600', fontSize: 16, color: '#0f172a' },
-  details: { color: '#475569' },
-  code: { fontWeight: '600', letterSpacing: 1, color: '#0f172a' },
+  details: { color: '#64748b' },
 };

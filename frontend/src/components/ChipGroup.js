@@ -1,17 +1,27 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 // A row of tappable options where one can be selected, e.g. session type.
 // options: [{ value, label }]
-export function ChipGroup({ label, options, value, onChange, error }) {
+// a11yLabel names the group for screen readers when there's no visible label.
+// layout: 'wrap' (default), 'segmented' (equal widths across the row, for two
+// or three fixed options) or 'scroll' (one line that scrolls sideways, for a
+// list that can grow, like a coach's squads).
+export function ChipGroup({ label, a11yLabel, options, value, onChange, error, layout = 'wrap' }) {
+  const chips = options.map((option) => (
+    <Chip key={option.value} label={option.label} selected={option.value === value}
+      onPress={() => onChange(option.value)} style={layout === 'segmented' ? { flex: 1 } : null} />
+  ));
+  const groupProps = { accessibilityRole: 'radiogroup', accessibilityLabel: label ?? a11yLabel };
   return (
     <View style={{ gap: 6 }}>
       {label ? <Text style={chipStyles.label}>{label}</Text> : null}
-      <View accessibilityRole="radiogroup" accessibilityLabel={label} style={chipStyles.row}>
-        {options.map((option) => (
-          <Chip key={option.value} label={option.label} selected={option.value === value}
-            onPress={() => onChange(option.value)} />
-        ))}
-      </View>
+      {layout === 'scroll' ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} {...groupProps}>
+          {chips}
+        </ScrollView>
+      ) : (
+        <View {...groupProps} style={[chipStyles.row, layout === 'segmented' && { flexWrap: 'nowrap' }]}>{chips}</View>
+      )}
       {error ? <Text style={chipStyles.error}>{error}</Text> : null}
     </View>
   );
@@ -22,7 +32,7 @@ export function Chip({ label, selected, onPress, style }) {
     <Pressable
       onPress={onPress}
       accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, checked: selected }}
       style={({ pressed }) => [chipStyles.chip, selected && chipStyles.chipSelected, pressed && { opacity: 0.7 }, style]}
     >
       <Text style={[chipStyles.chipText, selected && chipStyles.chipTextSelected]}>{label}</Text>

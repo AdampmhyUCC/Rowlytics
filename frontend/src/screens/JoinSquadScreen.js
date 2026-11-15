@@ -6,6 +6,9 @@ import { joinSquad } from '../lib/squads';
 import { validateSquadCode } from '../lib/validation';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 
+// Looks like the code on the coach's screen, so it's easy to check
+const codeInputStyle = [styles.input, { fontSize: 22, fontWeight: '600', letterSpacing: 3, textAlign: 'center' }];
+
 // An athlete 16 or over joins a squad with the code their coach sent them
 // (/join-squad). The database refuses under-16s and pending athletes.
 export default function JoinSquadScreen() {
@@ -52,8 +55,9 @@ export default function JoinSquadScreen() {
       </>}
     </>}>
       <Field label="Squad code" value={code} onChangeText={setCode} error={error}
-        placeholder="e.g. ABCD2345" maxLength={12} autoCapitalize="characters" autoCorrect={false}
-        autoComplete="off" autoFocus={!joined} editable={!joined} returnKeyType="join" onSubmitEditing={join} />
+        placeholder="ABCD 2345" maxLength={12} autoCapitalize="characters" autoCorrect={false}
+        autoComplete="off" autoFocus={!joined} editable={!joined} returnKeyType="join" onSubmitEditing={join}
+        style={[...codeInputStyle, error && styles.inputError]} />
       <Text style={styles.subtle}>
         Your coach sends the code, for example by text message. Joining shows your name to the
         squad's coach. They only see your training if you share it with coaches.
