@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { logError } from '../lib/log';
 import { useRefreshKey } from '../lib/refresh';
@@ -65,18 +65,21 @@ function EmptySquads() {
   );
 }
 
+// Tap to open the squad (screens/SquadScreen.js)
 function SquadCard({ squad }) {
   return (
-    <View
-      accessible
+    <Pressable
+      onPress={() => router.push(`/squad/${squad.squad_id}`)}
+      accessibilityRole="button"
       accessibilityLabel={`${squad.name}, ${formatAthleteCount(squad.memberCount)}, invite code ${squad.invite_code.split('').join(' ')}`}
-      style={cardStyles.card}
+      accessibilityHint="Opens the squad to manage it and see its athletes"
+      style={({ pressed }) => [cardStyles.card, pressed && { opacity: 0.7 }]}
     >
       <Text style={cardStyles.title}>{squad.name}</Text>
       <Text style={cardStyles.details}>
         {formatAthleteCount(squad.memberCount)} · Code <Text style={cardStyles.code}>{squad.invite_code}</Text>
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
