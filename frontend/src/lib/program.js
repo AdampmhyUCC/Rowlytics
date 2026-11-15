@@ -71,3 +71,29 @@ export async function fetchMyPlannedSessions() {
       .map((plan) => ({ ...plan, squadName: squadNames.get(plan.squad_id) })),
   };
 }
+
+// Coaches: the planned sessions they added most recently, with each squad's
+// name (#39). RLS only returns the coach's own squads' sessions.
+export async function fetchRecentPlans(limit = 3) {
+  const { data, error } = await supabase
+    .from('planned_sessions')
+    .select(`${PLAN_COLUMNS}, squads(name)`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) return { error };
+  return { data: data.map(({ squads, ...plan }) => ({ ...plan, squadName: squads?.name })) };
+}
+
+// Coaches: members, sharing athletes, planned and completed sessions for each
+// of their squads in the week starting weekStart (get_coach_week_stats in
+// program.sql). Only athletes who share their training are counted.
+export async function fetchCoachWeekStats(weekStart) {
+  return supabase.rpc('get_coach_week_stats', { p_week_start: weekStart });
+}
+
+// Average share of a week's planned sessions the sharing athletes completed,
+// as a whole percentage, or null when there's nothing to measure
+export function completionRate({ planned, sharing, completed }) {
+  if (!planned || !sharing) return null;
+  return Math.round((completed / (planned * sharing)) * 100);
+}

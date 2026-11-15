@@ -7,7 +7,7 @@ export default function Index() {
   if (!session) return <Redirect href={accountUsed ? '/login' : '/sign-up'} />;
   // Parents only use the app to give consent
   if (role === 'parent') return <Redirect href="/parent-consent" />;
-  if (role === 'coach') return <Redirect href="/squads" />;
+  if (role === 'coach') return <Redirect href="/coach-home" />;
   if (consentPending) return <Redirect href="/waiting-for-consent" />;
   return <Redirect href={privacyNoticeDue ? '/privacy-notice' : '/home'} />;
 }
