@@ -3,7 +3,7 @@
 -- A coach plans sessions for one of their squads. Everyone in the squad sees
 -- them in their training log and completes one by logging it as a normal
 -- session linked to the plan (completed_training.planned_session_id).
--- Coaches don't see completions here; that comes in #39, and only for
+-- Coaches only see completions as totals (get_coach_week_stats, #39), and only for
 -- athletes who share their training with coaches.
 
 CREATE TABLE IF NOT EXISTS public.planned_sessions (
@@ -84,3 +84,44 @@ CREATE POLICY "completed_training_plan_visible" ON public.completed_training
     planned_session_id IS NULL
     OR planned_session_id IN (SELECT planned_session_id FROM public.planned_sessions)
   );
+
+-- Coach home page (issue #39): how each of the coach's squads is getting on
+-- with one week of its program (p_week_start is the Monday). Only athletes who
+-- share their training with coaches (coach_sharing_at, #30) are counted, and
+-- only as totals, so the coach still can't see anyone else's training.
+--   members:   athletes in the squad now
+--   sharing:   of those, how many share their training (the ones counted)
+--   planned:   the squad's planned sessions that week
+--   completed: how many of those sessions the sharing athletes have logged
+-- Busiest squads (most completed) first.
+CREATE OR REPLACE FUNCTION public.get_coach_week_stats(p_week_start DATE)
+RETURNS TABLE (squad_id UUID, name VARCHAR, members INT, sharing INT, planned INT, completed INT)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    s.squad_id,
+    s.name,
+    (SELECT count(*) FROM public.squad_members m WHERE m.squad_id = s.squad_id)::INT,
+    (SELECT count(*) FROM public.squad_members m
+     JOIN public.athletes a ON a.athlete_id = m.athlete_id
+     WHERE m.squad_id = s.squad_id AND a.coach_sharing_at IS NOT NULL)::INT,
+    (SELECT count(*) FROM public.planned_sessions ps
+     WHERE ps.squad_id = s.squad_id
+       AND ps.session_date BETWEEN p_week_start AND p_week_start + 6)::INT,
+    (SELECT count(*) FROM public.completed_training ct
+     JOIN public.planned_sessions ps ON ps.planned_session_id = ct.planned_session_id
+     JOIN public.squad_members m ON m.squad_id = ps.squad_id AND m.athlete_id = ct.athlete_id
+     JOIN public.athletes a ON a.athlete_id = ct.athlete_id
+     WHERE ps.squad_id = s.squad_id
+       AND ps.session_date BETWEEN p_week_start AND p_week_start + 6
+       AND a.coach_sharing_at IS NOT NULL)::INT AS completed
+  FROM public.squads s
+  WHERE s.owner_id = (SELECT auth.uid())
+  ORDER BY completed DESC, s.created_at;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.get_coach_week_stats(DATE) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_coach_week_stats(DATE) TO authenticated;
