@@ -105,6 +105,12 @@ export function yesterdayString() {
 }
 
 // Monday and Sunday of the week containing date (weeks run Monday to Sunday)
+export function tomorrowString() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return localDateString(date);
+}
+
 export function weekStartString(date = new Date()) {
   const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
