@@ -1,14 +1,17 @@
 <!--
   Supabase: Authentication > Emails > Templates > Magic Link
-  Suggested subject: An athlete has asked for your consent on Rowlytics
+  Suggested subject: Your Rowlytics parent link
 
-  The app only sends magic links to parents for consent (athletes log in with a
-  password), so this is always a consent email. A parent who already has an
-  account, e.g. for a sibling, gets this one rather than Confirm signup.
+  The app only sends magic links to parents (athletes log in with a password):
+  when an athlete asks for consent, and when a parent asks for a new link on
+  the parent page to manage their child's squads (#33). Supabase uses this one
+  template for both, so it covers both. A parent who already has an account,
+  e.g. for a sibling, gets this one rather than Confirm signup.
 -->
-<h2>An athlete has asked for your consent</h2>
-<p>An athlete has given your email as their parent or guardian on Rowlytics, a
-training log for rowers. Athletes under 16 need a parent's consent before they
-can use the app.</p>
-<p><a href="{{ .ConfirmationURL }}">Review and approve</a></p>
+<h2>Your Rowlytics parent link</h2>
+<p>Rowlytics is a training log for rowers. Athletes under 16 need a parent's
+consent before they can use it, and a parent joins their coach's squads for them.</p>
+<p>Use this link to approve an athlete who gave your email as their parent or
+guardian, or to manage your child's squads.</p>
+<p><a href="{{ .ConfirmationURL }}">Open the parent page</a></p>
 <p>If you weren't expecting this, you can ignore this email and nothing will happen.</p>
