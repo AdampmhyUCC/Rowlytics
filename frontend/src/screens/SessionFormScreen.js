@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase';
 import { logError } from '../lib/log';
 import { confirm } from '../lib/confirm';
 import { validateSession } from '../lib/validation';
-import { MODALITIES, fetchSession, todayString } from '../lib/training';
+import { MODALITIES, fetchSession, formatSessionDate, todayString } from '../lib/training';
+import { fetchPlannedSession } from '../lib/program';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
 import { ChipGroup } from '../components/ChipGroup';
 import { DateChooser } from '../components/DateChooser';
@@ -13,19 +14,40 @@ import { RpeWheel } from '../components/RpeWheel';
 
 const EMPTY_FORM = { date: '', modality: 'erg', distance: '', minutes: '', seconds: '', rpe: null, notes: '' };
 
-// Log a new session (/session/new) or edit one (/session/<id>)
+// Log a new session (/session/new) or edit one (/session/<id>).
+// /session/new?planned=<id> logs a coach's planned session (#34): the form
+// starts from the plan and the saved session is linked to it.
 export default function SessionFormScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, planned } = useLocalSearchParams();
   const editing = !!id;
+  // The planned session being logged, shown above the form
+  const [plan, setPlan] = useState(null);
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM, date: todayString() }));
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   // While editing: null until loaded, false if the session wasn't found
-  const [loaded, setLoaded] = useState(editing ? null : true);
+  const [loaded, setLoaded] = useState(editing || planned ? null : true);
   // Which button is working: 'save' or 'delete'
   const [busy, setBusy] = useState(null);
 
   const update = (field) => (value) => setForm((f) => ({ ...f, [field]: value }));
+
+  // Start from the plan's type, and its date unless that's still to come
+  useEffect(() => {
+    if (editing || !planned) return;
+    fetchPlannedSession(planned).then(({ data, error }) => {
+      logError('sessionForm.loadPlan', error);
+      if (error) return setMessage(`Could not load the planned session: ${error.message}`);
+      if (!data) return setLoaded(false);
+      setPlan(data);
+      setForm((f) => ({
+        ...f,
+        modality: data.modality,
+        date: data.session_date < todayString() ? data.session_date : todayString(),
+      }));
+      setLoaded(true);
+    });
+  }, [planned]);
 
   useEffect(() => {
     if (!editing) return;
@@ -72,10 +94,12 @@ export default function SessionFormScreen() {
     // athlete_id is filled in by the database (my_athlete_id)
     const { error } = editing
       ? await supabase.from('completed_training').update(row).eq('completed_training_id', id)
-      : await supabase.from('completed_training').insert(row);
+      : await supabase.from('completed_training').insert(plan ? { ...row, planned_session_id: plan.planned_session_id } : row);
     setBusy(null);
 
     logError('sessionForm.save', error);
+    // 23505: completed_training_planned_once (program.sql)
+    if (error?.code === '23505') return setMessage('You\'ve already logged this planned session');
     if (error) return setMessage(`Save failed: ${error.message}`);
     close();
   }
@@ -94,7 +118,8 @@ export default function SessionFormScreen() {
     return (
       <Screen footer={<Button title="Back" variant="secondary" onPress={close} />}>
         {loaded === false
-          ? <Message text="This session doesn't exist or was deleted." />
+          ? <Message text={planned ? 'This planned session was deleted or you\'re no longer in its squad.'
+            : 'This session doesn\'t exist or was deleted.'} />
           : message ? <Message text={message} /> : <ActivityIndicator />}
       </Screen>
     );
@@ -107,6 +132,14 @@ export default function SessionFormScreen() {
       <Button title="Cancel" variant="secondary" onPress={close} />
       {editing ? <Button title="Delete session" variant="danger" onPress={remove} busy={busy === 'delete'} /> : null}
     </>}>
+      {plan ? (
+        <View style={planStyles.box}>
+          <Text style={planStyles.heading}>Planned for {formatSessionDate(plan.session_date)}</Text>
+          <Text style={planStyles.title}>{plan.title}</Text>
+          {plan.details ? <Text style={styles.subtle}>{plan.details}</Text> : null}
+        </View>
+      ) : null}
+
       <DateChooser value={form.date} onChange={update('date')} error={errors.date} />
 
       <ChipGroup label="Type" options={MODALITIES} value={form.modality} onChange={update('modality')}
@@ -139,3 +172,9 @@ export default function SessionFormScreen() {
     </Screen>
   );
 }
+
+const planStyles = {
+  box: { gap: 2, padding: 12, borderRadius: 10, borderLeftWidth: 4, borderLeftColor: '#0f4c81', backgroundColor: '#eff6ff' },
+  heading: { color: '#475569', fontWeight: '600' },
+  title: { fontWeight: '600', fontSize: 16, color: '#0f172a' },
+};

@@ -5,8 +5,10 @@ import { RPE_LABELS, formatDistance, formatDuration, formatSessionDate, formatSp
 // One training session. Tap to edit or delete it.
 // compact (Home): date · type, then distance · time.
 // Full (Training log): adds the split /500m for erg and water sessions.
+// Sessions logged against a coach's planned session show its title (#34).
 export function SessionCard({ session, compact }) {
   const { completed_training_id: id, session_date, modality, distance_m, duration_seconds, rpe } = session;
+  const plannedTitle = session.planned_sessions?.title;
   const split = !compact && modality !== 'other' ? formatSplit(duration_seconds, distance_m) : null;
   const details = [
     distance_m ? formatDistance(distance_m) : null,
@@ -15,7 +17,8 @@ export function SessionCard({ session, compact }) {
   ].filter(Boolean);
 
   const spoken = [formatSessionDate(session_date), modalityLabel(modality), ...details,
-    `RPE ${rpe}${RPE_LABELS[rpe] ? `, ${RPE_LABELS[rpe]}` : ''}`].join(', ');
+    plannedTitle ? `Planned session ${plannedTitle}` : null,
+    `RPE ${rpe}${RPE_LABELS[rpe] ? `, ${RPE_LABELS[rpe]}` : ''}`].filter(Boolean).join(', ');
 
   return (
     <Pressable
@@ -28,6 +31,7 @@ export function SessionCard({ session, compact }) {
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={cardStyles.title}>{formatSessionDate(session_date)} · {modalityLabel(modality)}</Text>
         <Text style={cardStyles.details}>{details.join(' · ')}</Text>
+        {plannedTitle ? <Text style={cardStyles.planned}>✓ {plannedTitle}</Text> : null}
       </View>
       <RpeBadge rpe={rpe} />
     </Pressable>
@@ -53,6 +57,7 @@ const cardStyles = {
   compact: { paddingVertical: 10 },
   title: { fontWeight: '600', fontSize: 16, color: '#0f172a' },
   details: { color: '#475569' },
+  planned: { color: '#0f4c81', fontWeight: '600', fontSize: 13 },
   badge: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   badgeValue: { fontSize: 18, fontWeight: 'bold', lineHeight: 20 },
   badgeLabel: { fontSize: 10, fontWeight: '600' },

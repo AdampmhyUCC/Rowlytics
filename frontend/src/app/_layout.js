@@ -60,6 +60,9 @@ function RootStack() {
           <Stack.Screen name="(coach)" options={{ headerShown: false, title: 'Squads' }} />
           <Stack.Screen name="squad/new" options={{ title: 'New squad', presentation: 'modal' }} />
           <Stack.Screen name="squad/[id]" options={{ title: 'Squad' }} />
+          {/* One form for adding and editing a planned session (screens/PlannedSessionFormScreen.js) */}
+          <Stack.Screen name="plan/new" options={{ title: 'Plan session', presentation: 'modal' }} />
+          <Stack.Screen name="plan/[id]" options={{ title: 'Edit planned session', presentation: 'modal' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!privacyNoticeDue}>

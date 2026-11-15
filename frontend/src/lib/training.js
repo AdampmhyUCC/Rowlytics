@@ -26,7 +26,10 @@ export const RPE_LABELS = {
   10: 'Maximal',
 };
 
-const SESSION_COLUMNS = 'completed_training_id, session_date, modality, distance_m, duration_seconds, rpe, notes';
+// planned_sessions(title): the squad session this one completes (#34), null
+// for the athlete's own sessions or once they've left the squad
+const SESSION_COLUMNS = 'completed_training_id, session_date, modality, distance_m, duration_seconds, rpe, notes, '
+  + 'planned_session_id, planned_sessions(title)';
 
 // RLS only returns the signed-in athlete's own sessions. Newest first; sessions
 // on the same day are ordered by when they were logged.
@@ -105,6 +108,12 @@ export function yesterdayString() {
 }
 
 // Monday and Sunday of the week containing date (weeks run Monday to Sunday)
+export function tomorrowString() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return localDateString(date);
+}
+
 export function weekStartString(date = new Date()) {
   const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));

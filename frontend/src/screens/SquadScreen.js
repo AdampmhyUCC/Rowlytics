@@ -10,9 +10,11 @@ import {
   renameSquad, squadInviteMessage,
 } from '../lib/squads';
 import { Button, Field, Message, Screen, styles } from '../components/Form';
+import { SquadProgram } from '../components/SquadProgram';
 
 // One of the coach's squads (/squad/<id>): rename or delete it, share or
-// change its invite code, and see or remove the athletes in it
+// change its invite code, plan its training program, and see or remove the
+// athletes in it
 export default function SquadScreen() {
   const { id } = useLocalSearchParams();
   // null until loaded, false if the squad wasn't found
@@ -135,6 +137,8 @@ export default function SquadScreen() {
         <Button title="Share code" variant="secondary" onPress={share} />
         <Button title="Make a new code" variant="secondary" onPress={newCode} busy={busy === 'code'} />
       </View>
+
+      <SquadProgram squadId={id} />
 
       <Text style={styles.label}>Athletes ({members.length})</Text>
       {members.length === 0

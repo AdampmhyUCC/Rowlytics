@@ -56,6 +56,16 @@ export function validatePassword(password) {
   return null;
 }
 
+// A YYYY-MM-DD session date that exists and isn't before 2000 (the
+// session_date checks in training.sql and program.sql)
+function validateSessionDate(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'Enter the date as YYYY-MM-DD';
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) return 'That date does not exist';
+  if (date < '2000-01-01') return 'Check the year';
+  return null;
+}
+
 // A training session form. The ranges match the checks on completed_training
 // (db/training.sql). Returns an error per field, or {} if it's all valid.
 // today is the phone's local date (YYYY-MM-DD), so "no future dates" uses the
@@ -63,18 +73,9 @@ export function validatePassword(password) {
 export function validateSession(form, today) {
   const errors = {};
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
-    errors.date = 'Enter the date as YYYY-MM-DD';
-  } else {
-    const date = new Date(`${form.date}T00:00:00Z`);
-    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== form.date) {
-      errors.date = 'That date does not exist';
-    } else if (form.date > today) {
-      errors.date = 'Sessions cannot be in the future';
-    } else if (form.date < '2000-01-01') {
-      errors.date = 'Check the year';
-    }
-  }
+  const dateError = validateSessionDate(form.date);
+  if (dateError) errors.date = dateError;
+  else if (form.date > today) errors.date = 'Sessions cannot be in the future';
 
   if (!['erg', 'water', 'other'].includes(form.modality)) errors.modality = 'Choose a session type';
 
@@ -103,5 +104,19 @@ export function validateSession(form, today) {
 
   if (form.notes.length > 500) errors.notes = 'Notes must be 500 characters or fewer';
 
+  return errors;
+}
+
+// A coach's planned session (planned_sessions in program.sql). Past dates are
+// allowed so a coach can fill in this week's program late.
+export function validatePlannedSession(form) {
+  const errors = {};
+  const dateError = validateSessionDate(form.date);
+  if (dateError) errors.date = dateError;
+  if (!['erg', 'water', 'other'].includes(form.modality)) errors.modality = 'Choose a session type';
+  const title = form.title.trim();
+  if (!title) errors.title = 'Enter a title, e.g. 3 x 2k';
+  else if (title.length > 80) errors.title = 'Title must be 80 characters or fewer';
+  if (form.details.length > 500) errors.details = 'Details must be 500 characters or fewer';
   return errors;
 }
