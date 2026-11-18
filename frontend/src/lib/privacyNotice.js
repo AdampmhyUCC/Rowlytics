@@ -1,7 +1,9 @@
 // The privacy notice athletes read before choosing whether to share their
 // training with coaches. Raise PRIVACY_NOTICE_VERSION when the wording changes
 // in a way athletes should see: everyone is shown it again on their next open.
-export const PRIVACY_NOTICE_VERSION = 1;
+// 2: coaches see squad members' names whether or not they share, and joining
+// a squad doesn't need sharing (#33)
+export const PRIVACY_NOTICE_VERSION = 2;
 
 export const PRIVACY_NOTICE = [
   {
@@ -16,13 +18,14 @@ export const PRIVACY_NOTICE = [
   },
   {
     heading: 'What your coaches see',
-    body: 'Only if you share: your name and the training you log, for the squads you join. '
+    body: 'When you join a squad, its coach sees your name, when you joined and whether you share '
+      + 'your training. Only if you share: the training you log, for the squads you join. '
       + 'Coaches can\'t see your password and can\'t change the sessions you log.',
   },
   {
     heading: 'It\'s your choice',
-    body: 'Sharing is optional. If you don\'t share, you can still log and track your own '
-      + 'training, but you can\'t join a squad. You can change your mind at any time in '
+    body: 'Sharing is optional. If you don\'t share, you can still log your own training and join '
+      + 'squads; coaches see your name but not your training. You can change your mind at any time in '
       + 'My profile → Privacy and data sharing. If you stop sharing, coaches can no longer see your training.',
   },
   {
